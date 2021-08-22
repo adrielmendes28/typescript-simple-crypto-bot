@@ -1,0 +1,1 @@
+{"version":3,"file":"OrderBook.js","sourceRoot":"","sources":["../../src/schemas/OrderBook.ts"],"names":[],"mappings":";;AAAA,uCAAyC;AAGzC,MAAM,eAAe,GAAW,IAAI,iBAAM,CAAC;IACzC,EAAE,EAAE,EAAE,IAAI,EAAE,MAAM,EAAE,QAAQ,EAAE,KAAK,EAAE;CACtC,CAAC,CAAC;AAEH,kBAAe,gBAAK,CAAqB,WAAW,EAAE,eAAe,CAAC,CAAC"}
