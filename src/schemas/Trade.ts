@@ -3,7 +3,6 @@ import { TradeInterface } from "../interfaces/TradeInterface";
 
 const TradeSchema: Schema = new Schema({
   eventType: { type: String, required: false },
-  eventTime: { type: Number, required: false },
   symbol: { type: String, required: false },
   price: { type: Number, required: false },
   quantity: { type: Number, required: false },

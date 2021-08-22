@@ -13,9 +13,16 @@ export class TradeService {
     symbols = symbols.map((s: any) => s.symbol);
 
     this.binance.websockets.trades(symbols, async (trades: any) => {
-      let { e: eventType, E: eventTime, s: symbol, p: price, q: quantity, m: maker, a: tradeId } = trades;
-      await Trade.create({ eventType, eventTime, symbol, price, quantity, maker, tradeId })
+      let { e, E, s, p, q, m, a } = trades;
+      await Trade.create({
+        eventType: e,
+        time: E,
+        symbol: s,
+        price: p,
+        quantity: q,
+        maker: m,
+        tradeId: a
+      })
     });
   }
-  
 }

@@ -15,9 +15,6 @@ export class CandleStickService {
         let tick = this.binance.last(chart);
         const last = chart[tick].close;
         console.info(chart);
-        // Optionally convert 'chart' object to array:
-        // let ohlc = binance.ohlc(chart);
-        // console.info(symbol, ohlc);
         console.info(symbol + " last price: " + last)
       });
     }));
@@ -28,26 +25,26 @@ export class CandleStickService {
     symbols = symbols.map((s: any) => s.symbol);
 
     this.binance.websockets.candlesticks(symbols, "1m", async (candlesticks: any) => {
-      let { E: eventTime, s: symbol, k: ticks } = candlesticks;
-      let { t: openTime, T: closeTime, o: open, h: high, l: low, c: close, v: volume, n: trades, i: interval, x: isFinal, q: quoteVolume, V: buyVolume, Q: quoteBuyVolume } = ticks;
+      const { E, s, k } = candlesticks;
+      const { t, T, o, h, l, c, v, n, i, x, q, V, Q } = k;
+      const ticks = { 
+        openTime: t, 
+        closeTime: T, 
+        time: E, 
+        symbol: s, 
+        open: o, 
+        high: h, 
+        low: l, 
+        close: c, 
+        volume: v, 
+        trades: n, 
+        interval: i, 
+        isFinal: x, 
+        quoteVolume: q, 
+        buyVolume: V, 
+        quoteBuyVolume: Q 
+      }
 
-      ticks = {
-        symbol,
-        time: eventTime,
-        openTime,
-        closeTime,
-        open,
-        high,
-        low,
-        close,
-        volume,
-        trades,
-        interval,
-        isFinal,
-        quoteVolume,
-        buyVolume,
-        quoteBuyVolume
-      };
       await CandleStick.create(ticks);
     });
 
