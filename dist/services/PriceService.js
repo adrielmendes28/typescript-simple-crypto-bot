@@ -6,7 +6,7 @@ const node_binance_api_1 = tslib_1.__importDefault(require("node-binance-api"));
 class PriceService {
     constructor() {
         this.binance = new node_binance_api_1.default().options({
-            APIKEY: '3IxaGjA768Hf9zcAcNI1pAcaP5kSjIubrIAe3CqLhiJeQ7Hw7rFoXXGXk3HFCdSd',
+            APIKEY: process.env.API_KEY,
             APISECRET: process.env.API_SECRET
         });
     }

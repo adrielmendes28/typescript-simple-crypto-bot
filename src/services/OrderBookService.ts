@@ -6,7 +6,7 @@ import { SymbolInterface } from '../interfaces/SymbolInterface';
 export class OrderBookService {
 
   private binance = new Binance().options({
-    APIKEY: '3IxaGjA768Hf9zcAcNI1pAcaP5kSjIubrIAe3CqLhiJeQ7Hw7rFoXXGXk3HFCdSd',
+    APIKEY: process.env.API_KEY,
     APISECRET: process.env.API_SECRET
   });
 
