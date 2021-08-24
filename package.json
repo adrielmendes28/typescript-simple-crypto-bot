@@ -24,6 +24,7 @@
     "dotenv": "^10.0.0",
     "http-status-codes": "^1.4.0",
     "jsonwebtoken": "^8.5.1",
+    "log-beautify": "^1.2.0",
     "md5": "^2.3.0",
     "mongodb-memory-server": "^7.3.6",
     "mongoose": "^5.9.4",

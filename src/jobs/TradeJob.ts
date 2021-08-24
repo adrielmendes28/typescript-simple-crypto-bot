@@ -10,7 +10,7 @@ export class TradeJob {
         this.tradeService.startSocketTrade();
         this.candleStickService.startSocketCandleStick();
         // this.candleStickService.startSocketChartData();
-        this.cronJob = new CronJob("*/3 * * * * *", async () => {
+        this.cronJob = new CronJob("*/1 * * * * *", async () => {
             try {
                 await this.start();
             } catch (e) {

@@ -14,13 +14,15 @@ export class TradeService {
 
   private alerts = require('trading-indicator').alerts;
   private stochasticRSI = require('trading-indicator').stochasticRSI;
+  private log = require("log-beautify");
 
   public async nowRSI(symbol: string): Promise<any> {
     let stochRSI = await this.stochasticRSI(3, 3, 14, 14, "close", "binance", symbol, "5m", true);
     let stochRSIVal = stochRSI[stochRSI.length - 1];
+    // console.log( stochRSIVal.stochRSI)
     stochRSIVal = {
       overBought: stochRSIVal.stochRSI >= 80,
-      overSold: stochRSIVal.stochRSI <= 25,
+      overSold: stochRSIVal.stochRSI <= 35,
       rsiVal: stochRSIVal.stochRSI,
     };
     // let SMA = await this.alerts.priceCrossSMA(14, 'binance', symbol, '5m', false) 
@@ -49,7 +51,7 @@ export class TradeService {
     var openOrders = await OrderSchema.find({ status: 'OPEN', symbol });
     var floatingEarn = 0;
     var floatingLoss = 0;
-    var TP = 0.01;
+    var TP = 0.015;
     await Promise.all(openOrders.map(async (orderItem: any) => {
       if (orderItem.price <= price) {
         let earn = (price - orderItem.price) * orderItem.quantity
@@ -102,24 +104,27 @@ export class TradeService {
         var lastCandle = await candleStickService.getLastCandle(currency);
         var rsiCheck = await this.nowRSI(currency);
         var { floatingEarn, floatingLoss, openOrders } = await this.verifyOpenOrders(currency, lastPrice?.price);
-        var startAmount = 20;
+        var startAmount = 100;
         totalWin += floatingEarn;
-        totalLoss += floatingLoss;;
-        console.log(`${currency} - ${lastPrice?.price} - ${lastCandle?.low} Win ${floatingEarn} Loss ${floatingLoss} `);
+        totalLoss += floatingLoss;
+        this.log.info(`${currency} - PRICE: ${lastPrice?.price} - LOW: ${lastCandle?.low} - HIGH: ${lastCandle?.high} - WIN: ${floatingEarn}USDT - LOSS: ${floatingLoss}USDT `);
 
         if (rsiCheck.haveSignal) {
           let order = rsiCheck.stoch.signal.buy ? 'buy' : 'sell';
           let buyForce = lastBook?.interest?.buy >= 60;
           let sellForce = lastBook?.interest?.sell >= 60;
-          if (order == 'buy' && sellForce) {
-            console.log(`${currency} SIGNAL ${order.toUpperCase()} ON` + lastCandle.low);
+          // console.log(lastBook?.interest);
+          if (order == 'buy' && !sellForce) {
+            this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${lastCandle.low}USDT`);
             if (openOrders.length > 0) {
               await Promise.all(openOrders.map(async (openOrder: any) => {
-                let loss = lastPrice?.price - openOrder.price;
+                let loss =  openOrder.price - lastPrice?.price;
                 let maxLoss = (loss / lastPrice?.price) * 100;
+                console.log('maxLoss', maxLoss);
                 if (lastPrice?.price <= openOrder.price && openOrder.martinGale <= 2) {
-                  let maxMartinLoss = openOrder.martinGale == 0 ? 4 : (openOrder.martinGale == 1 ? 5 : (openOrder.martinGale == 2 ? 7 : 10))
-                  if (maxLoss >= 4) {
+                  let maxMartinLoss = openOrder.martinGale == 0 ? 0.6*maxLoss : (openOrder.martinGale == 1 ? 1.2*maxLoss : (openOrder.martinGale == 2 ? 1.6*maxLoss : 2.0*maxLoss))
+                  console.log(maxMartinLoss);
+                  if (maxLoss >= maxMartinLoss) {
                     console.log('Perda máxima de 4% martingale ativado');
                     await OrderSchema.findOneAndUpdate({
                       _id: openOrder._id,
@@ -141,8 +146,8 @@ export class TradeService {
               }
             }
           }
-          if (order == 'sell' && buyForce) {
-            console.log(`${currency} SIGNAL ${order.toUpperCase()} AT` + lastCandle?.high);
+          if (order == 'sell' && !buyForce) {
+            this.log.error(`${currency} SIGNAL ${order.toUpperCase()} AT ` + lastCandle?.high);
             if (openOrders.length > 0) {
               await Promise.all(openOrders.map(async (openOrder: any) => {
                 if (openOrder.price < lastPrice?.price && lastPrice?.price >= lastCandle?.high - ((lastCandle?.high / 100) * 2)) {
@@ -158,7 +163,7 @@ export class TradeService {
       }
     }));
 
-    console.log({ totalWin, totalLoss })
+    // console.log({ totalWin, totalLoss })
   }
 
   public async startSocketTrade(): Promise<any> {
