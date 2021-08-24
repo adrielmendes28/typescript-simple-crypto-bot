@@ -54,8 +54,7 @@ export class TradeService {
       if (orderItem.price <= price) {
         let earn = (price - orderItem.price) * orderItem.quantity
         floatingEarn += earn;
-        console.log((orderItem.price * TP));
-        console.log('price', price, 'metaVenda', (orderItem.price + (orderItem.price * TP)));
+        // console.log('price', price, 'metaVenda', (orderItem.price + (orderItem.price * TP)));
         if (price >= (orderItem.price + (orderItem.price * TP))) {
           await this.createNewOrder(symbol, price, orderItem.quantity, 'SELL', 'CLOSE');
           await this.closeOrder(orderItem, earn);
