@@ -63,7 +63,7 @@ export class TradeService {
       if (orderItem.price >= price) {
         let loss = (orderItem.price - price) * orderItem.quantity;
         floatingLoss += loss;
-        console.log(loss);
+        // console.log(loss);
       }
     }));
 
