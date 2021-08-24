@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 import { CandleInterface } from "../interfaces/CandleInterface";
 
 const CandleStickSchema: Schema = new Schema({
-  symbol: { type: { type: String, required: false } },
+  symbol:  { type: String, required: false },
   time: { type: Date, required: false },
   openTime: { type: Date, required: false },
   closeTime: { type: Date, required: false },

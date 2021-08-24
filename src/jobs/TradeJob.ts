@@ -1,10 +1,16 @@
 import { CronJob } from 'cron';
-
+import { CandleStickService } from '../services/CandleStickService';
+import { TradeService } from '../services/TradeService';
 export class TradeJob {
     cronJob: CronJob;
+    tradeService = new TradeService();
+    candleStickService = new CandleStickService();
 
     constructor() {
-        this.cronJob = new CronJob("* * * * *", async () => {
+        this.tradeService.startSocketTrade();
+        this.candleStickService.startSocketCandleStick();
+        // this.candleStickService.startSocketChartData();
+        this.cronJob = new CronJob("*/2 * * * * *", async () => {
             try {
                 await this.start();
             } catch (e) {
@@ -16,7 +22,8 @@ export class TradeJob {
         }
     }
 
-    private start = () => {
+    private start = async () => {
+        this.tradeService.tradeSymbols();
         return null
     }
 }

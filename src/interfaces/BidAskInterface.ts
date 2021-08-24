@@ -1,5 +1,4 @@
 import { Document } from "mongoose";
-
 export interface BidAskInterface extends Document {
   id: string;
   symbol: string;

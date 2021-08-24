@@ -1,6 +1,5 @@
 import Symbol from '../schemas/Symbol';
 import { SymbolInterface } from '../interfaces/SymbolInterface';
-
 export class SymbolService {
   public async getSymbols() {
     const symbols: SymbolInterface[] = await Symbol.find({});

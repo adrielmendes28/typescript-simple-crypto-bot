@@ -1,6 +1,7 @@
 import Mongoose from "mongoose";
-import { MonitorJob } from "../src/jobs/MonitorJob"
-import { TradeJob } from "../src/jobs/TradeJob"
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MonitorJob } from "../src/jobs/MonitorJob";
+import { TradeJob } from "../src/jobs/TradeJob";
 export default class CryptoBotServer {
   constructor() {
     this.setupDatabase();
@@ -13,7 +14,9 @@ export default class CryptoBotServer {
     new TradeJob();
   }
 
-  private setupDatabase(): void {
+  private async setupDatabase() {
+    // const mongod = await MongoMemoryServer.create();
+    // const connString = mongod.getUri();
     const connString = "mongodb://localhost:27017/cryptobot";
 
     Mongoose.connect(connString, {
@@ -23,7 +26,7 @@ export default class CryptoBotServer {
   }
 
   public start(): void {
-    console.log('₵ryptoBOT has started. '+new Date().toString());
+    console.log('₵ryptoBOT has started. ' + new Date().toString());
   }
 }
 ("");

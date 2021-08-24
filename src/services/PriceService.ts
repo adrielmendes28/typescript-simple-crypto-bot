@@ -1,13 +1,18 @@
-import { SymbolService } from './SymbolService';
-import { SymbolInterface } from '../interfaces/SymbolInterface';
+
 import Binance from 'node-binance-api';
 import Price from '../schemas/Price';
-
+import { SymbolService } from './SymbolService';
+import { SymbolInterface } from '../interfaces/SymbolInterface';
 export class PriceService {
   private binance = new Binance().options({
     APIKEY: process.env.API_KEY,
     APISECRET: process.env.API_SECRET
   });
+
+  public async getLastPrice(symbol: string): Promise<any> {
+    let last = await Price.findOne({symbol: symbol}).sort({time: -1});
+    return last;
+  }
 
   public async getSymbolPrice(symbol: string): Promise<any> {
     let ticker = await this.binance.prices(symbol);

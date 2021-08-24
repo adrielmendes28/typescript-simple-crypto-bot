@@ -1,5 +1,4 @@
 import { Document } from "mongoose";
-
 export interface CandleInterface extends Document {
   symbol: string;
   time: Date;
