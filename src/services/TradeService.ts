@@ -11,7 +11,7 @@ export class TradeService {
     APIKEY: process.env.API_KEY,
     APISECRET: process.env.API_SECRET
   });
-
+  private startAmount = 200;
   private alerts = require('trading-indicator').alerts;
   private stochasticRSI = require('trading-indicator').stochasticRSI;
   private log = require("log-beautify");
@@ -19,14 +19,14 @@ export class TradeService {
   public async nowRSI(symbol: string): Promise<any> {
     let stochRSI = await this.stochasticRSI(3, 3, 14, 14, "close", "binance", symbol, "5m", true);
     let stochRSIVal = stochRSI[stochRSI.length - 1];
-    // console.log( stochRSIVal.stochRSI)
+
     stochRSIVal = {
       overBought: stochRSIVal.stochRSI >= 80,
-      overSold: stochRSIVal.stochRSI <= 35,
+      overSold: stochRSIVal.stochRSI <= 40,
       rsiVal: stochRSIVal.stochRSI,
     };
-    // let SMA = await this.alerts.priceCrossSMA(14, 'binance', symbol, '5m', false) 
-    // let EMA = await this.alerts.priceCrossEMA(14, 'binance', symbol, '5m', false) 
+    // let SMA = await this.alerts.priceCrossSMA(14, 'binance', symbol, "5m", false) 
+    // let EMA = await this.alerts.priceCrossEMA(14, 'binance', symbol, "5m", false) 
     return {
       haveSignal: stochRSIVal.overSold || stochRSIVal.overBought,
       stoch: {
@@ -35,7 +35,8 @@ export class TradeService {
     }
   }
 
-  public async closeOrder(orderItem: any, earn: number) {
+  public async closeOrder(orderItem: any, earn: any, price: any) {
+    await this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE');
     await OrderSchema.findOneAndUpdate({
       _id: orderItem._id,
       symbol: orderItem.symbol,
@@ -43,29 +44,92 @@ export class TradeService {
     }, {
       $set: {
         status: 'FINISH',
-        earn: earn
+        earn: earn.toString()
       }
     });
   }
-  public async verifyOpenOrders(symbol: string, price: number) {
+
+
+
+
+  public async trailingStopLoss(orderItem: any, earnF: any, price: any, lastCandle: any) {
+    let next = true;
+    let takeProfit = (orderItem.price * orderItem.quantity) * 1.015;
+    let takeLoss = (orderItem.price * orderItem.quantity) - ((orderItem.price * orderItem.quantity) * 0.02);
+    let atualPrice = (price * orderItem.quantity);
+    let balance = (atualPrice - (orderItem.price * orderItem.quantity)) > 0;
+    console.log(`TP/TL: ${takeProfit.toFixed(2)}/${takeLoss.toFixed(2)}`, `NOW: ${atualPrice.toFixed(2)}`)
+    if (atualPrice >= takeProfit) {
+      next = false;
+      await this.closeOrder(orderItem, earnF.toString(), price);
+    }
+    if (atualPrice <= takeLoss) {
+      await this.closeOrder(orderItem, earnF.toString(), price);;
+    }
+    if (price >= lastCandle.high && balance) {
+      await this.closeOrder(orderItem, earnF.toString(), price);;
+    }
+    return {
+      next
+    }
+  }
+
+  public async verifyOpenOrders(symbol: string, price: number, lastCandle: any) {
     var openOrders = await OrderSchema.find({ status: 'OPEN', symbol });
     var floatingEarn = 0;
     var floatingLoss = 0;
-    var TP = 0.015;
     await Promise.all(openOrders.map(async (orderItem: any) => {
-      if (orderItem.price <= price) {
-        let earn = (price - orderItem.price) * orderItem.quantity
-        floatingEarn += earn;
-        // console.log('price', price, 'metaVenda', (orderItem.price + (orderItem.price * TP)));
-        if (price >= (orderItem.price + (orderItem.price * TP))) {
-          await this.createNewOrder(symbol, price, orderItem.quantity, 'SELL', 'CLOSE');
-          await this.closeOrder(orderItem, earn);
+      let earnF = (price - parseFloat(orderItem.price)) * parseFloat(orderItem.quantity);
+      let trailingStop = await this.trailingStopLoss(orderItem, earnF, price, lastCandle);
+      var localLoss = 0;
+      var localEarn = 0;
+      if (trailingStop.next) {
+        let priceBuy = orderItem.price * orderItem.quantity;
+        if (earnF > 0) {
+          floatingEarn += earnF;
+          localEarn = earnF;
         }
-      }
-      if (orderItem.price >= price) {
-        let loss = (orderItem.price - price) * orderItem.quantity;
-        floatingLoss += loss;
-        // console.log(loss);
+        if (earnF < 0) {
+          localLoss = earnF;
+          floatingLoss += earnF;
+          let checkAgain = await OrderSchema.find({ status: 'OPEN', symbol });
+          if (price <= orderItem.price && orderItem.martinGale < 3 && checkAgain.length < 2) {
+            let maxMartinLoss = orderItem.martinGale == 0 ? 0.005 * orderItem.price : (orderItem.martinGale == 1 ? 0.010 * orderItem.price : (orderItem.martinGale == 2 ? 0.035 * orderItem.price : 0.04 * orderItem.price))
+            let maxLoss = (orderItem.price - maxMartinLoss);
+            let warningLoss = (orderItem.price - 0.003 * orderItem.price);
+            if (price <= warningLoss) this.log.warn('MAX LOSS ', maxLoss, 'BUY AT ', orderItem.price);
+            if (price <= maxLoss) {
+              let martinSignal = orderItem.martinSignal + 1;
+              if (martinSignal >= 10) {
+                await OrderSchema.findOneAndUpdate({
+                  _id: orderItem._id,
+                }, {
+                  $set: {
+                    martinGale: orderItem.martinGale + 1,
+                    martinSignal: 0
+                  }
+                });
+                this.log.error(`MAX LOSS REACHEAD ${maxMartinLoss} OPENING MARTINGALE ${orderItem.martinGale + 1}`);
+                await this.createNewOrder(symbol, price, orderItem.quantity * 2, 'BUY', 'OPEN', 99);
+              } else {
+                await OrderSchema.findOneAndUpdate({
+                  _id: orderItem._id,
+                }, {
+                  $set: {
+                    martinSignal
+                  }
+                });
+              }
+            }
+          };
+        };
+        let objetivo = (orderItem.price * orderItem.quantity) * 1.01;
+        if (localEarn > 0) {
+          this.log.success(`[${symbol}]`, 'START:', priceBuy.toFixed(3), 'POSITION RESULT', (earnF + priceBuy).toFixed(3), 'GOAL', objetivo.toFixed(3), `WIN: ${localEarn.toFixed(3)}USDT - LOSS: ${localLoss.toFixed(3)}USDT`);
+        } else {
+          this.log.error(`[${symbol}]`, 'START:', priceBuy.toFixed(3), 'POSITION RESULT', (earnF + priceBuy).toFixed(3), 'GOAL', objetivo.toFixed(3), `WIN: ${localEarn.toFixed(3)}USDT - LOSS: ${localLoss.toFixed(3)}USDT`);
+        }
+
       }
     }));
 
@@ -74,15 +138,14 @@ export class TradeService {
       floatingLoss,
       floatingEarn
     };
-
   }
 
   public async createNewOrder(currency: string, price: number, quantity = 4, order = 'SELL', status = 'OPEN', martingale = 0) {
     await OrderSchema.create({
       symbol: currency,
       time: new Date().getTime(),
-      price: price,
-      quantity: quantity,
+      price: price.toString(),
+      quantity: quantity.toString(),
       status,
       order: order,
       martinGale: martingale
@@ -103,59 +166,31 @@ export class TradeService {
         var lastBook = await orderBook.getLastBook(currency);
         var lastCandle = await candleStickService.getLastCandle(currency);
         var rsiCheck = await this.nowRSI(currency);
-        var { floatingEarn, floatingLoss, openOrders } = await this.verifyOpenOrders(currency, lastPrice?.price);
-        var startAmount = 100;
+        var { floatingEarn, floatingLoss, openOrders } = await this.verifyOpenOrders(currency, lastPrice?.price, lastCandle);
+
         totalWin += floatingEarn;
         totalLoss += floatingLoss;
-        this.log.info(`${currency} - PRICE: ${lastPrice?.price} - LOW: ${lastCandle?.low} - HIGH: ${lastCandle?.high} - WIN: ${floatingEarn}USDT - LOSS: ${floatingLoss}USDT `);
-
+        this.log.info(`${currency} - PRICE: ${lastPrice?.price} - LOW: ${lastCandle?.low} - HIGH: ${lastCandle?.high} `);
         if (rsiCheck.haveSignal) {
           let order = rsiCheck.stoch.signal.buy ? 'buy' : 'sell';
-          let buyForce = lastBook?.interest?.buy >= 60;
-          let sellForce = lastBook?.interest?.sell >= 60;
-          // console.log(lastBook?.interest);
-          if (order == 'buy' && !sellForce) {
-            this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${lastCandle.low}USDT`);
-            if (openOrders.length > 0) {
-              await Promise.all(openOrders.map(async (openOrder: any) => {
-                let loss =  openOrder.price - lastPrice?.price;
-                let maxLoss = (loss / lastPrice?.price) * 100;
-                console.log('maxLoss', maxLoss);
-                if (lastPrice?.price <= openOrder.price && openOrder.martinGale <= 2) {
-                  let maxMartinLoss = openOrder.martinGale == 0 ? 0.6*maxLoss : (openOrder.martinGale == 1 ? 1.2*maxLoss : (openOrder.martinGale == 2 ? 1.6*maxLoss : 2.0*maxLoss))
-                  console.log(maxMartinLoss);
-                  if (maxLoss >= maxMartinLoss) {
-                    console.log('Perda máxima de 4% martingale ativado');
-                    await OrderSchema.findOneAndUpdate({
-                      _id: openOrder._id,
-                      symbol: currency,
-                      status: 'OPEN'
-                    }, {
-                      $set: {
-                        martinGale: openOrder.martinGale+1
-                      }
-                    });
-                    await this.createNewOrder(currency, lastPrice?.price, openOrder.quantity * 2, 'BUY', 'OPEN', 3);
-                  }
-                };
-              }));
+          let buyForce = lastBook?.interest?.buy >= 65;
+          let sellForce = lastBook?.interest?.sell >= 65;
+          if (order == 'buy' && !sellForce && (lastBook?.bids.length >= 20 && lastBook?.asks.length >= 20)) {
+            if (lastBook?.wallsByBids.length > 0 && lastPrice?.price > lastCandle.low * 1.2) {
+              let betterBid = lastBook?.bids[0];
+              lastCandle.low = (lastBook?.wallsByBids[0] <= betterBid) ? betterBid : lastBook?.wallsByBids[0];
             }
+            this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${parseFloat(lastCandle.low)}USDT`);
+
+
             if (openOrders.length === 0) {
               if (lastPrice?.price <= lastCandle.low) {
-                await this.createNewOrder(currency, lastCandle.low, (startAmount / lastPrice?.price), 'BUY');
+                await this.createNewOrder(currency, lastPrice?.price, (this.startAmount / lastPrice?.price), 'BUY');
               }
             }
           }
-          if (order == 'sell' && !buyForce) {
+          if (order == 'sell' && !buyForce && (lastBook?.bids.length > 20 && lastBook?.asks.length > 20)) {
             this.log.error(`${currency} SIGNAL ${order.toUpperCase()} AT ` + lastCandle?.high);
-            if (openOrders.length > 0) {
-              await Promise.all(openOrders.map(async (openOrder: any) => {
-                if (openOrder.price < lastPrice?.price && lastPrice?.price >= lastCandle?.high - ((lastCandle?.high / 100) * 2)) {
-                  let earn = (lastPrice?.price * openOrder.quantity) - (openOrder.price * openOrder.quantity);
-                  await this.closeOrder(openOrder, earn);
-                }
-              }));
-            }
           }
         };
       } catch (err) {
@@ -163,7 +198,10 @@ export class TradeService {
       }
     }));
 
-    // console.log({ totalWin, totalLoss })
+    let balance = totalWin + totalLoss;
+    if (balance > 0) this.log.success(`TOTAL ON OPERATIONS: ${balance}`)
+
+    if (balance < 0) this.log.warn(`TOTAL ON OPERATIONS: ${balance.toFixed(3)}USDT`)
   }
 
   public async startSocketTrade(): Promise<any> {
@@ -178,13 +216,13 @@ export class TradeService {
         symbol: s,
         price: p,
         qty: q,
-        total: Number(p) * Number(q),
+        total: parseFloat(p) * parseFloat(q),
         maker: m,
         tradeId: a
       })
       await Price.create({
         symbol: s,
-        price: Number(p),
+        price: parseFloat(p),
         time: E
       });
     });

@@ -22,6 +22,7 @@ export class OrderBookService {
         asks: a,
         bids: b
       };
+      
       await this.updateOrderBook(E, orderBookRaw, s);
     });
   }
@@ -31,9 +32,11 @@ export class OrderBookService {
     let amountAll = 0;
     let totalAll = 0;
 
+    bidAsk = bidAsk.slice(0,20);
+
     bidAsk.forEach((valueArray: any, index: number) => {
-      let price = Number(valueArray[0]);
-      let qty = Number(valueArray[1]);
+      let price = parseFloat(valueArray[0]);
+      let qty = parseFloat(valueArray[1]);
       let total = price * qty;
       let bookItem = {
         position: index,

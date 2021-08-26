@@ -31,7 +31,7 @@ export class PriceService {
       let price = await this.getSymbolPrice(symbol.symbol) ?? 0;
       let lastSymbolPrice = {
         symbol: symbol.symbol,
-        price: Number(price),
+        price: parseFloat(price),
         time
       }
       await Price.create(lastSymbolPrice);
