@@ -5,19 +5,22 @@ import { PriceService } from '../services/PriceService';
 import { OrderService } from '../services/OrderService';
 import { OrderBookService } from '../services/OrderBookService';
 import { CandleStickService } from '../services/CandleStickService';
+import Price from '../schemas/Price';
 
 export class TradeService {
   private binance = new Binance().options({
     APIKEY: process.env.API_KEY,
     APISECRET: process.env.API_SECRET
   });
+  private candleStickService = new CandleStickService;
+  private priceService = new PriceService;
+  private orderBook = new OrderBookService;
   private startAmount = 50;
-  private stochasticRSI = require('trading-indicator').stochasticRSI;
   private log = require("log-beautify");
   private orderService = new OrderService;
 
   public async nowRSI(symbol: string): Promise<any> {
-    let stochRSI = await this.stochasticRSI(3, 3, 14, 14, "close", "binance", symbol, "5m", true);
+    let stochRSI = await this.candleStickService.calculateStochasticRSI(symbol);
     let stochRSIVal = stochRSI[stochRSI.length - 1];
 
     stochRSIVal = {
@@ -35,18 +38,15 @@ export class TradeService {
 
 
   public async tradeSymbols() {
-    const priceService = new PriceService;
-    const orderBook = new OrderBookService;
-    const candleStickService = new CandleStickService;
     const symbols = await Symbol.find({});
     let totalLoss = 0;
     let totalWin = 0;
     await Promise.all(symbols.map(async (symbol) => {
       try {
         var currency = symbol.symbol;
-        var lastPrice = await priceService.getLastPrice(currency);
-        var lastBook = await orderBook.getLastBook(currency);
-        var lastCandle = await candleStickService.getLastCandle(currency);
+        var lastPrice = await this.priceService.getLastPrice(currency);
+        var lastBook = await this.orderBook.getLastBook(currency);
+        var lastCandle = await this.candleStickService.getLastCandle(currency);
         var rsiCheck = await this.nowRSI(currency);
         var { floatingEarn, floatingLoss, openOrders } = await this.orderService.verifyOpenOrders(currency, lastPrice?.price, lastCandle);
 
@@ -101,7 +101,10 @@ export class TradeService {
         total: parseFloat(p) * parseFloat(q),
         maker: m,
         tradeId: a
-      })
+      });
+
+      await Price.findOneAndUpdate({ symbol: s},{symbol: s, price: parseFloat(p), time: E}, 
+        { upsert: true })
     });
   }
 }

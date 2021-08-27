@@ -2,6 +2,18 @@
 # yarn lockfile v1
 
 
+"@d3fc/d3fc-rebind@^6.0.1":
+  "integrity" "sha512-+ryBZ53ALMffbADwnFAtTYQJcT7PE5BwpducGYS0X6Jux6ESnp+fP+cDQvBGbDBOVqaziGnfeLeJXjtMnZujmQ=="
+  "resolved" "https://registry.npmjs.org/@d3fc/d3fc-rebind/-/d3fc-rebind-6.0.1.tgz"
+  "version" "6.0.1"
+
+"@d3fc/d3fc-technical-indicator@^8.1.0":
+  "integrity" "sha512-ma5l4nLC0kReDjxeMuodwrQWzDzJHoBoYIJKfzAJhfcMhS/XqJBKXYfT5BO7ggjzAsW/oD9xh64tmozXx/pHoQ=="
+  "resolved" "https://registry.npmjs.org/@d3fc/d3fc-technical-indicator/-/d3fc-technical-indicator-8.1.0.tgz"
+  "version" "8.1.0"
+  dependencies:
+    "@d3fc/d3fc-rebind" "^6.0.1"
+
 "@sindresorhus/is@^0.14.0":
   "integrity" "sha512-9NET910DNaIPngYnLLPeg+Ogzqsi9uM4mSboU5y6p8S5DzMTVEsJZrawi+BoDNUVBa2DhJqQYUFvMDfgU062LQ=="
   "resolved" "https://registry.npmjs.org/@sindresorhus/is/-/is-0.14.0.tgz"
@@ -448,6 +460,13 @@
   "resolved" "https://registry.npmjs.org/crypto-random-string/-/crypto-random-string-2.0.0.tgz"
   "version" "2.0.0"
 
+"d3-array@*":
+  "integrity" "sha512-nTN4OC6ufZueotlexbxBd2z8xmG1eIfhvP2m1auH2ONps0L+AZn1r0JWuzMXZ6XgOj1VBOp7GGZmEs9NUFEBbA=="
+  "resolved" "https://registry.npmjs.org/d3-array/-/d3-array-3.0.2.tgz"
+  "version" "3.0.2"
+  dependencies:
+    "internmap" "1 - 2"
+
 "dashdash@^1.12.0":
   "integrity" "sha1-hTz6D3y+L+1d4gMmuN1YEDX24vA="
   "resolved" "https://registry.npmjs.org/dashdash/-/dashdash-1.14.1.tgz"
@@ -823,6 +842,11 @@
   "integrity" "sha512-iKpRpXP+CrP2jyrxvg1kMUpXDyRUFDWurxbnVT1vQPx+Wz9uCYsMIqYuSBLV+PAaZG/d7kRLKRFc9oDMsH+mFQ=="
   "resolved" "https://registry.npmjs.org/ini/-/ini-1.3.7.tgz"
   "version" "1.3.7"
+
+"internmap@1 - 2":
+  "integrity" "sha512-Ujwccrj9FkGqjbY3iVoxD1VV+KdZZeENx0rphrtzmRXbFvkFO88L80BL/zeSIguX/7T+y8k04xqtgWgS5vxwxw=="
+  "resolved" "https://registry.npmjs.org/internmap/-/internmap-2.0.1.tgz"
+  "version" "2.0.1"
 
 "ip@1.1.5":
   "integrity" "sha1-vd7XARQpCCjAoDnnLvJfWq7ENUo="
@@ -1733,7 +1757,12 @@
   dependencies:
     "has-flag" "^4.0.0"
 
-"technicalindicators@^3.0.0", "technicalindicators@^3.1.0":
+"ta.js@^1.4.5":
+  "integrity" "sha512-4GOrQWFCp/QmQ8zHWgy9O+Q2uLRal2aopJYHgX3mBpH2aKH7TG/JYVKadCFh9Qi6XIo+gl6uypdYvWUrhupUyw=="
+  "resolved" "https://registry.npmjs.org/ta.js/-/ta.js-1.4.5.tgz"
+  "version" "1.4.5"
+
+"technicalindicators@^3.0.0":
   "integrity" "sha512-f16mOc+Y05hNy/of+UbGxhxQQmxUztCiluhsqC5QLUYz4WowUgKde9m6nIjK1Kay0wGHigT0IkOabpp0+22UfA=="
   "resolved" "https://registry.npmjs.org/technicalindicators/-/technicalindicators-3.1.0.tgz"
   "version" "3.1.0"

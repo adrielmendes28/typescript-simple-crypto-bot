@@ -16,6 +16,7 @@
   "author": "Adriel Mendes",
   "license": "ISC",
   "dependencies": {
+    "@d3fc/d3fc-technical-indicator": "^8.1.0",
     "axios": "^0.21.1",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
@@ -31,7 +32,7 @@
     "node-binance-api": "^0.13.0",
     "node-cron": "^3.0.0",
     "orderbook-analysis": "^0.1.2",
-    "technicalindicators": "^3.1.0",
+    "ta.js": "^1.4.5",
     "trading-indicator": "^1.0.4-beta",
     "tslib": "^2.3.1"
   },

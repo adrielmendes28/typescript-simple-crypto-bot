@@ -1,8 +1,8 @@
-import CandleStick from '../schemas/CandleStick';
+import Price from '../schemas/Price';
 
 export class PriceService {
   public async getLastPrice(symbol: string): Promise<any> {
-    let last = await CandleStick.findOne({symbol: symbol, isFinal: true}).sort({time: -1});
+    let last = await Price.findOne({symbol: symbol});
     return last;
   }
 }
