@@ -1,6 +1,5 @@
 import { CronJob } from 'cron';
 import { OrderBookService } from '../services/OrderBookService';
-import { PriceService } from '../services/PriceService';
 
 export class MonitorJob {
     cronJob: CronJob;

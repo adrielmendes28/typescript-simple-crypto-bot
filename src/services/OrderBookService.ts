@@ -1,4 +1,3 @@
-import axios from 'axios';
 import Binance from 'node-binance-api';
 import OrderBook from "../schemas/OrderBook";
 import { OBA } from 'orderbook-analysis';
@@ -11,28 +10,42 @@ export class OrderBookService {
     APISECRET: process.env.API_SECRET
   });
 
+
+  private bookJsonToArray(book: any){
+    return Object.keys(book).map(key =>{
+      return [key, book[key]];
+    })
+  }
+
   public async startOrderBookSocket(): Promise<any> {
     let symbols: SymbolInterface[] = await new SymbolService().getSymbols();
     symbols = symbols.map((s: any) => s.symbol);
-    await this.binance.websockets.depth(symbols, async (depth: any) => {
-      let { e, E, s, u, b, a } = depth;
+    
+
+    await this.binance.websockets.depthCache(symbols, async (symbol: string, depth: { bids: any; asks: any; eventTime:any; lastUpdateId: any; }) => {
+      let bids = this.binance.sortBids(depth.bids);
+      let asks = this.binance.sortAsks(depth.asks);
+      let asksArray = this.bookJsonToArray(asks);      
+      let bidsArray = this.bookJsonToArray(bids);
+
       let orderBookRaw = {
-        time: E,
-        lastUpdateId: u,
-        asks: a,
-        bids: b
+        time: depth.eventTime,
+        lastUpdateId: depth.lastUpdateId,
+        asks: asksArray,
+        bids: bidsArray
       };
       
-      await this.updateOrderBook(E, orderBookRaw, s);
+      await this.updateOrderBook(depth.eventTime, orderBookRaw, symbol);
     });
+
   }
 
-  private normalizePureBook(bidAsk: any, order: string) {
+  private normalizePureBook(bidAsk: any, order: string, maxLength: number) {
     let book: any[] = [];
     let amountAll = 0;
     let totalAll = 0;
 
-    bidAsk = bidAsk.slice(0,20);
+    bidAsk = bidAsk.slice(0,maxLength -1);
 
     bidAsk.forEach((valueArray: any, index: number) => {
       let price = parseFloat(valueArray[0]);
@@ -65,12 +78,12 @@ export class OrderBookService {
 
   public async updateOrderBook(time: number, orderBookRaw: any, symbol: string) {
     try {
-
       let orderBook = new OBA(orderBookRaw);
       let spread = orderBook.calc('spread');
       let { bids, asks } = orderBookRaw;
-      bids = await this.normalizePureBook(bids, 'BUY');
-      asks = await this.normalizePureBook(asks, 'SELL');
+      let maxLength = bids.length > asks.length ? asks.length : bids.length;
+      bids = await this.normalizePureBook(bids, 'BUY', maxLength);
+      asks = await this.normalizePureBook(asks, 'SELL', maxLength);
 
       let amountBuy = bids.amountAll;
       let amountSell = asks.amountAll;
