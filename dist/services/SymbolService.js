@@ -1,21 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NewPriceService = void 0;
+exports.SymbolService = void 0;
 const tslib_1 = require("tslib");
-const node_binance_api_1 = tslib_1.__importDefault(require("node-binance-api"));
-class NewPriceService {
-    constructor() {
-        this.binance = new node_binance_api_1.default().options({
-            APIKEY: '<key>',
-            APISECRET: '<secret>'
-        });
-    }
-    getNewPrice(symbol) {
+const Symbol_1 = tslib_1.__importDefault(require("../schemas/Symbol"));
+class SymbolService {
+    getSymbols() {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            console.log('symbol', symbol);
-            return null;
+            let symbols = yield Symbol_1.default.find({});
+            if (symbols.length == 0)
+                yield Symbol_1.default.insertMany([{ symbol: 'ADAUSDT' }, { symbol: 'BTTUSDT' }, { symbol: 'DOGEUSDT' }]);
+            symbols = yield Symbol_1.default.find({});
+            return symbols;
         });
     }
 }
-exports.NewPriceService = NewPriceService;
+exports.SymbolService = SymbolService;
 //# sourceMappingURL=SymbolService.js.map

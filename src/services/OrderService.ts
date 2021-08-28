@@ -24,12 +24,14 @@ export class OrderService {
     var floatingEarn = 0;
     var floatingLoss = 0;
     await Promise.all(openOrders.map(async (orderItem: any) => {
-      let earnF = (price - parseFloat(orderItem.price)) * parseFloat(orderItem.quantity);
+      let priceBuy = orderItem.price * orderItem.quantity;
+      let priceNow = price * orderItem.quantity;
+      let earnF = priceNow - priceBuy;
+      let objetivo = (orderItem.price * orderItem.quantity) * 1.010;
       let trailingStop = await this.trailingStopLoss(orderItem, earnF, price, lastCandle);
       var localLoss = 0;
       var localEarn = 0;
       if (trailingStop.next) {
-        let priceBuy = orderItem.price * orderItem.quantity;
         if (earnF > 0) {
           floatingEarn += earnF;
           localEarn = earnF;
@@ -68,7 +70,6 @@ export class OrderService {
             }
           };
         };
-        let objetivo = (orderItem.price * orderItem.quantity) * 1.010;
         if (localEarn > 0) {
           this.log.success(`[${symbol}]`, 'START:', priceBuy.toFixed(3), 'POSITION RESULT', (earnF + priceBuy).toFixed(3), 'GOAL', objetivo.toFixed(3), `WIN: ${localEarn.toFixed(3)}USDT - LOSS: ${localLoss.toFixed(3)}USDT`);
         } else {
@@ -106,7 +107,7 @@ export class OrderService {
     let atualPrice = (price * orderItem.quantity);
     let balance = atualPrice - originalPrice;
     
-    console.log(`TP/TL: ${takeProfit.toFixed(2)}/${takeLoss.toFixed(2)}`, `NOW: ${atualPrice.toFixed(2)}`)
+    // console.log(`TP/TL: ${takeProfit.toFixed(2)}/${takeLoss.toFixed(2)}`, `NOW: ${atualPrice.toFixed(2)}`)
     if (atualPrice >= takeProfit) {
       next = false;
       await this.closeOrder(orderItem, earnF.toString(), price);
@@ -115,7 +116,7 @@ export class OrderService {
       next = false;
       await this.closeOrder(orderItem, earnF.toString(), price);;
     }
-    if (price >= lastCandle.high && balance  >= binanceTax*3) {
+    if (price >= lastCandle?.high) {
       next = false;
       await this.closeOrder(orderItem, earnF.toString(), price);;
     }

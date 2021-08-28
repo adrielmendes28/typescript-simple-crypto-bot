@@ -1,6 +1,7 @@
 import Mongoose from "mongoose";
-import { MonitorJob } from "../src/jobs/MonitorJob";
-import { TradeJob } from "../src/jobs/TradeJob";
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MonitorJob } from "./jobs/MonitorJob";
+import { TradeJob } from "./jobs/TradeJob";
 export default class CryptoBotServer {
   constructor() {
     this.setupDatabase();
@@ -14,6 +15,8 @@ export default class CryptoBotServer {
   }
 
   private async setupDatabase() {
+    // const mongod = await MongoMemoryServer.create();
+    // const connString = mongod.getUri();
     const connString = "mongodb://localhost:27017/cryptobot";
 
     Mongoose.connect(connString, {

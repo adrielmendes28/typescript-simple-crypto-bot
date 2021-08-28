@@ -18,7 +18,7 @@ export class OrderBookService {
   }
 
   public async startOrderBookSocket(): Promise<any> {
-    let symbols: SymbolInterface[] = await new SymbolService().getSymbols();
+    let symbols: any = await new SymbolService().getSymbols();
     symbols = symbols.map((s: any) => s.symbol);
     
 
@@ -44,8 +44,6 @@ export class OrderBookService {
     let book: any[] = [];
     let amountAll = 0;
     let totalAll = 0;
-
-    bidAsk = bidAsk.slice(0,maxLength -1);
 
     bidAsk.forEach((valueArray: any, index: number) => {
       let price = parseFloat(valueArray[0]);
@@ -101,8 +99,8 @@ export class OrderBookService {
           up: depthByPercent.up / (depthByPercent.up + depthByPercent.down) * 100,
           down: depthByPercent.down / (depthByPercent.up + depthByPercent.down) * 100
         },
-        asks: asks.book,
-        bids: bids.book,
+        asks: asks.book.slice(0,3),
+        bids: bids.book.slice(0,3),
         spread,
         median: {
           buy: buyMedianPrice, sell: sellMedianPrice

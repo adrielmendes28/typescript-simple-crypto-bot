@@ -8,10 +8,11 @@ export class TradeJob {
 
     constructor() {
         this.tradeService.startSocketTrade();
-        this.candleStickService.startSocketChartData();
+        this.candleStickService.startSocketChartData(); 
+        this.tradeService.tradeSymbols();
         this.cronJob = new CronJob("*/1 * * * * *", async () => {
             try {
-                await this.start();
+                // await this.tradeService.tradeSymbols();
             } catch (e) {
                 console.error(e);
             }
@@ -21,8 +22,4 @@ export class TradeJob {
         }
     }
 
-    private start = async () => {
-        this.tradeService.tradeSymbols();
-        return null
-    }
 }

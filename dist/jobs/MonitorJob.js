@@ -1,16 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.MonitorJob = void 0;
 const tslib_1 = require("tslib");
 const cron_1 = require("cron");
-const PriceService_1 = require("src/services/PriceService");
+const OrderBookService_1 = require("../services/OrderBookService");
 class MonitorJob {
     constructor() {
-        this.update = () => {
-            const priceService = new PriceService_1.PriceService;
-            priceService.getAllSymbolsPrice();
-            return null;
-        };
-        this.cronJob = new cron_1.CronJob("*/1 * * * * *", () => tslib_1.__awaiter(this, void 0, void 0, function* () {
+        this.update = () => tslib_1.__awaiter(this, void 0, void 0, function* () {
+            const old = new Date().getTime();
+        });
+        const orderBookService = new OrderBookService_1.OrderBookService;
+        orderBookService.startOrderBookSocket();
+        this.cronJob = new cron_1.CronJob("*/3 * * * * *", () => tslib_1.__awaiter(this, void 0, void 0, function* () {
             try {
                 yield this.update();
             }
@@ -23,5 +24,5 @@ class MonitorJob {
         }
     }
 }
-const monitorJob = new MonitorJob();
+exports.MonitorJob = MonitorJob;
 //# sourceMappingURL=MonitorJob.js.map

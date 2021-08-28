@@ -2,20 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PriceService = void 0;
 const tslib_1 = require("tslib");
-const node_binance_api_1 = tslib_1.__importDefault(require("node-binance-api"));
+const Price_1 = tslib_1.__importDefault(require("../schemas/Price"));
 class PriceService {
-    constructor() {
-        this.binance = new node_binance_api_1.default().options({
-            APIKEY: process.env.API_KEY,
-            APISECRET: process.env.API_SECRET
-        });
-    }
-    getAllSymbolsPrice() {
+    getLastPrice(symbol) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            console.log('[HeartBeat] Updating all Symbol prices.');
-            let ticker = yield this.binance.prices();
-            console.log(ticker);
-            return null;
+            let last = yield Price_1.default.findOne({ symbol: symbol }).sort({ createdAt: -1 });
+            return last;
         });
     }
 }
