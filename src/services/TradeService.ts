@@ -40,27 +40,28 @@ export class TradeService {
 
 
   public async tradeSymbols() {
-    let lastPrices = await this.binance.client.prices();
-    let symbols: any = await new SymbolService().getSymbols();
-    let totalLoss = 0;
-    let totalWin = 0;
+    var lastPrices = await this.binance.prices();
+    var symbols: any = await new SymbolService().getSymbols();
+    var totalLoss = 0;
+    var totalWin = 0;
     await Promise.all(symbols.map(async (symbol: any, index: number) => {
       var currency = symbol.symbol;      
-      var lastPrice = lastPrices[symbol];
+      var lastPrice = lastPrices[currency];
+      
       var lastBook = await this.orderBook.getLastBook(currency);
       var lastCandle = await this.candleStickService.getLastCandle(currency);
       var rsiCheck = await this.nowRSI(currency);
-      var { floatingEarn, floatingLoss, openOrders } = await this.orderService.verifyOpenOrders(currency, lastPrice?.price, lastCandle);
+      var { floatingEarn, floatingLoss, openOrders } = await this.orderService.verifyOpenOrders(currency, lastPrice, lastCandle);
 
       totalWin += floatingEarn;
       totalLoss += floatingLoss;
-      this.log.info(`${currency} - PRICE: ${lastPrice?.price} - LOW: ${lastCandle?.low} - HIGH: ${lastCandle?.high} `);
+      this.log.info(`${currency} - PRICE: ${lastPrice} - LOW: ${lastCandle?.low} - HIGH: ${lastCandle?.high} `);
       if (rsiCheck.haveSignal) {
         let order = rsiCheck.stoch.signal.buy ? 'buy' : 'sell';
         let buyForce = lastBook?.interest?.buy >= 65;
         let sellForce = lastBook?.interest?.sell >= 65;
         if (order == 'buy' && !sellForce) {
-          if (lastBook?.wallsByBids.length > 0 && lastPrice?.price > lastCandle.low * 1.2) {
+          if (lastBook?.wallsByBids.length > 0 && lastPrice > lastCandle.low * 1.2) {
             let betterBid = lastBook?.bids[0];
             lastCandle.low = (lastBook?.wallsByBids[0] <= betterBid) ? betterBid : lastBook?.wallsByBids[0];
           }
@@ -68,8 +69,8 @@ export class TradeService {
 
 
           if (openOrders.length === 0) {
-            if (lastPrice?.price <= lastCandle.low) {
-              await this.orderService.createNewOrder(currency, lastPrice?.price, (this.startAmount / lastPrice?.price), 'BUY');
+            if (lastPrice <= lastCandle.low) {
+              await this.orderService.createNewOrder(currency, lastPrice, (this.startAmount / lastPrice), 'BUY');
             }
           }
         }
