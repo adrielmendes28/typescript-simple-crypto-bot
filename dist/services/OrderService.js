@@ -43,14 +43,16 @@ class OrderService {
                     if (earnF < 0) {
                         localLoss = earnF;
                         floatingLoss += earnF;
-                        let checkAgain = yield Order_1.default.find({ status: 'OPEN', symbol });
-                        if (price <= orderItem.price && orderItem.martinGale < 3 && checkAgain.length < 2) {
-                            let maxMartinLoss = orderItem.martinGale == 0 ? 0.005 * orderItem.price : (orderItem.martinGale == 1 ? 0.010 * orderItem.price : (orderItem.martinGale == 2 ? 0.035 * orderItem.price : 0.04 * orderItem.price));
+                        if (price <= orderItem.price && orderItem.martinGale < 3) {
+                            let maxMartinLoss = orderItem.martinGale == 0 ? 0.005 : (orderItem.martinGale == 1 ? 0.010 : (orderItem.martinGale == 2 ? 0.035 : 0.04));
                             let maxLoss = (orderItem.price - maxMartinLoss);
+                            let originalPrice = orderItem.price * orderItem.quantity;
+                            let takeLoss = (originalPrice) - (originalPrice * maxMartinLoss);
+                            let atualPrice = (price * orderItem.quantity);
                             let warningLoss = (orderItem.price - 0.003 * orderItem.price);
                             if (price <= warningLoss)
                                 this.log.warn('MAX LOSS ', maxLoss, 'BUY AT ', orderItem.price);
-                            if (price <= maxLoss) {
+                            if (atualPrice <= takeLoss) {
                                 let martinSignal = orderItem.martinSignal + 1;
                                 if (martinSignal >= 10) {
                                     yield Order_1.default.findOneAndUpdate({
@@ -61,7 +63,7 @@ class OrderService {
                                             martinSignal: 0
                                         }
                                     });
-                                    this.log.error(`MAX LOSS REACHEAD ${maxMartinLoss} OPENING MARTINGALE ${orderItem.martinGale + 1}`);
+                                    this.log.error(`MAX LOSS REACHEAD ${takeLoss} OPENING MARTINGALE ${orderItem.martinGale + 1}`);
                                     yield this.createNewOrder(symbol, price, orderItem.quantity * 2, 'BUY', 'OPEN', 99);
                                 }
                                 else {
@@ -124,10 +126,9 @@ class OrderService {
                 yield this.closeOrder(orderItem, earnF.toString(), price);
                 ;
             }
-            if (price >= (lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.high)) {
+            if (price >= (lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.high) && balance >= binanceTax * 3 && balance >= 0.1) {
                 next = false;
                 yield this.closeOrder(orderItem, earnF.toString(), price);
-                ;
             }
             return {
                 next

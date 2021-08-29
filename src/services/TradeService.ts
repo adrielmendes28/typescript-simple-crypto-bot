@@ -16,7 +16,7 @@ export class TradeService {
   private candleStickService = new CandleStickService;
   private priceService = new PriceService;
   private orderBook = new OrderBookService;
-  private startAmount = 15;
+  private startAmount = 10;
   private log = require("log-beautify");
   private orderService = new OrderService;
 
