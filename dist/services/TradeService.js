@@ -27,7 +27,7 @@ class TradeService {
             let stochRSIVal = stochRSI[stochRSI.length - 1];
             stochRSIVal = {
                 overBought: (stochRSIVal === null || stochRSIVal === void 0 ? void 0 : stochRSIVal.stochRSI) >= 80,
-                overSold: (stochRSIVal === null || stochRSIVal === void 0 ? void 0 : stochRSIVal.stochRSI) <= 40,
+                overSold: (stochRSIVal === null || stochRSIVal === void 0 ? void 0 : stochRSIVal.stochRSI) <= 20,
                 rsiVal: stochRSIVal === null || stochRSIVal === void 0 ? void 0 : stochRSIVal.stochRSI,
             };
             return {
@@ -45,13 +45,13 @@ class TradeService {
             var totalLoss = 0;
             var totalWin = 0;
             yield Promise.all(symbols.map((symbol, index) => tslib_1.__awaiter(this, void 0, void 0, function* () {
-                var _a, _b;
+                var _a, _b, _c, _d, _e;
                 var currency = symbol.symbol;
                 var lastPrice = lastPrices[currency];
                 var lastBook = yield this.orderBook.getLastBook(currency);
                 var lastCandle = yield this.candleStickService.getLastCandle(currency);
                 var rsiCheck = yield this.nowRSI(currency);
-                var { floatingEarn, floatingLoss, openOrders } = yield this.orderService.verifyOpenOrders(currency, lastPrice, lastCandle);
+                var { floatingEarn, floatingLoss, openOrders } = yield this.orderService.verifyOpenOrders(currency, lastPrice, lastCandle, symbols);
                 totalWin += floatingEarn;
                 totalLoss += floatingLoss;
                 this.log.info(`${currency} - PRICE: ${lastPrice} - LOW: ${lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.low} - HIGH: ${lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.high} `);
@@ -64,17 +64,20 @@ class TradeService {
                             let betterBid = lastBook === null || lastBook === void 0 ? void 0 : lastBook.bids[0];
                             lastCandle.low = ((lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids[0]) <= betterBid) ? betterBid : lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids[0];
                         }
-                        let orderPrice = lastCandle.low.toFixed(3);
+                        let orderPrice = lastCandle.low.toString();
                         this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}USDT`);
-                        if (openOrders.length === 0) {
-                            let quantity = (this.startAmount / orderPrice);
-                            this.binance.buy(currency, quantity.toFixed(1), orderPrice, { type: 'LIMIT' }, (error, response) => {
+                        if (openOrders.length === 0 && parseFloat(lastPrice) <= parseFloat(orderPrice)) {
+                            let mySymbol = symbols.find((s) => s.symbol === currency);
+                            let quantity = (this.startAmount / orderPrice).toString();
+                            let newQuantity = quantity.split('.').length > 0 && (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? quantity.split('.')[0] + '.' + quantity.split('.')[1].substr(0, parseInt((_c = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) !== null && _c !== void 0 ? _c : 0)) : ((mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? quantity : parseInt(quantity));
+                            let newPrice = (_e = (orderPrice.split('.').length > 0 && orderPrice.split('.')[0] + '.' + orderPrice.split('.')[1].substr(0, parseInt((_d = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) !== null && _d !== void 0 ? _d : 0)))) !== null && _e !== void 0 ? _e : orderPrice;
+                            this.binance.buy(currency, newQuantity, newPrice, { type: 'LIMIT' }, (error, response) => {
                                 if (error)
-                                    console.log('ERRO AO COMPRAR');
+                                    console.log('ERRO AO COMPRAR', error.body, newQuantity);
                                 if (!error) {
                                     console.info("Limit Buy placed!", response);
                                     console.info("order id: " + response.orderId);
-                                    this.orderService.createNewOrder(currency, orderPrice, quantity, 'BUY');
+                                    this.orderService.createNewOrder(currency, orderPrice, response.origQty, 'BUY', 'OPEN', 0, response.orderId);
                                 }
                             });
                         }

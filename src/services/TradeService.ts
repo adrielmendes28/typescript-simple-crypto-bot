@@ -27,7 +27,7 @@ export class TradeService {
     // console.log('stochRSI', stochRSIVal?.stochRSI, symbol);
     stochRSIVal = {
       overBought: stochRSIVal?.stochRSI >= 80,
-      overSold: stochRSIVal?.stochRSI <= 40,
+      overSold: stochRSIVal?.stochRSI <= 20,
       rsiVal: stochRSIVal?.stochRSI,
     };
     return {
@@ -66,21 +66,20 @@ export class TradeService {
             lastCandle.low = (lastBook?.wallsByBids[0] <= betterBid) ? betterBid : lastBook?.wallsByBids[0];
           }
           let orderPrice = lastCandle.low.toString();
-          this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice.toFixed(3)}USDT`);
+          this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}USDT`);
 
-
-          if (openOrders.length === 0) {
+          if (openOrders.length === 0  && parseFloat(lastPrice) <= parseFloat(orderPrice)) {
             let mySymbol = symbols.find((s:any) => s.symbol === currency);
             let quantity:any = (this.startAmount / orderPrice).toString();
-            let newQuantity = (quantity.split('.').length > 0 && mySymbol?.quantityDecimal > 0 && quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0))) ?? quantity;
-            let newPrice = (orderPrice.split('.').length > 0 && mySymbol?.priceDecimal > 0 && orderPrice.split('.')[0]+'.'+orderPrice.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ?? orderPrice;
+            let newQuantity = quantity.split('.').length > 0 && mySymbol?.quantityDecimal > 0 ? quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0)) : (mySymbol?.quantityDecimal > 0 ? quantity : parseInt(quantity));
+            let newPrice = (orderPrice.split('.').length > 0 && orderPrice.split('.')[0]+'.'+orderPrice.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ??  orderPrice;
             
             this.binance.buy(currency, newQuantity, newPrice, {type:'LIMIT'}, (error: any, response: any) => {
-              if(error) console.log('ERRO AO COMPRAR');
+              if(error) console.log('ERRO AO COMPRAR',error.body, newQuantity);
               if(!error) {
                 console.info("Limit Buy placed!", response);
                 console.info("order id: " + response.orderId);
-                this.orderService.createNewOrder(currency, orderPrice, quantity, 'BUY');
+                this.orderService.createNewOrder(currency, orderPrice, response.origQty, 'BUY','OPEN',0, response.orderId);
               }
             });
           }

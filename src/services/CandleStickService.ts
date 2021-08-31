@@ -17,8 +17,6 @@ export class CandleStickService {
     let candles:any = await CandleManagement.findOne({ symbol: symbol });
     candles = (candles && candles.candles && candles?.candles.sort((a:any, b:any) => a.time - b.time))  ?? [];
     var data = candles.map((candle:any) => candle.close) ?? [];
-    // let lastPrice = candles[candles.length -1].close;
-    // console.log( `LAST PRICE ${lastPrice} SYMBOL ${symbol}`)
     let stochasticrsiInput = {
         values: data,
         kPeriod: 3,

@@ -3,6 +3,7 @@ import { OrderInterface } from "../interfaces/OrderInterface";
 
 const OrderSchema: Schema = new Schema({
   symbol: { type: String, required: false },
+  orderId: { type: String, required: false },
   time: { type: Date, required: false },
   price: { type: String, required: false },
   earn: { type: String, required: false },

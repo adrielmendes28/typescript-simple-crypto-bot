@@ -10,26 +10,38 @@ export class OrderService {
 
   public async closeOrder(orderItem: any, earn: any, price: any, symbols: any) {
     let mySymbol = symbols.find((s:any) => s.symbol === orderItem.symbol);
-    let { quantity } = orderItem;
-    let newQuantity = (quantity.split('.').length > 0 && mySymbol?.quantityDecimal > 0 && quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0))) ?? quantity;
-    let newPrice = (price.split('.').length > 0 && mySymbol?.priceDecimal > 0 && price.split('.')[0]+'.'+price.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ?? price;
-    this.binance.sell(orderItem.symbol, newQuantity, newPrice, {type:'LIMIT'}, async (error: any, response: any) => {
-      // if(error) console.log('ERRO AO VENDER', error);
-      if(!error) {
-        console.info("VENDIDO: " + response.orderId);
-        await this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE');
-        await OrderSchema.findOneAndUpdate({
-          _id: orderItem._id,
-          symbol: orderItem.symbol,
-          status: 'OPEN'
-        }, {
-          $set: {
-            status: 'FINISH',
-            earn: earn.toString()
-          }
+     this.binance.trades(orderItem.symbol, (error:any, trades:any, symbol:any) => {
+      let mainTrade = trades.find((tr: any) => tr.orderId.toString() === orderItem.orderId);
+      if(mainTrade){
+        let { qty,commission } = mainTrade;
+        let quantity:any = (qty -commission).toString();
+        let newQuantity = mySymbol?.quantityDecimal > 0 ? quantity.split('.').length > 0 &&  quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0)) :  parseInt(quantity);
+        let newPrice = (price.split('.').length > 0 && mySymbol?.priceDecimal > 0 && price.split('.')[0]+'.'+price.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ?? price;
+      
+        console.log('realQuantity =>', quantity)
+        this.binance.sell(orderItem.symbol, newQuantity, newPrice, {type:'LIMIT'}, async (error: any, response: any) => {
+          if(error){
+            console.log('ERRO AO VENDER')
+          };
+          if(!error) {
+            console.info("VENDIDO: " + response.orderId, earn);
+            await this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE',0, response.orderId);
+            await OrderSchema.findOneAndUpdate({
+              _id: orderItem._id,
+              symbol: orderItem.symbol,
+              status: 'OPEN'
+            }, {
+              $set: {
+                status: 'FINISH',
+                earn: earn.toString()
+              }
+            });
+        }
         });
-    }
+      }
     });
+   
+  
   }
 
   public async setStopOrder(orderItem: any){
@@ -49,7 +61,7 @@ export class OrderService {
       let priceBuy = orderItem.price * orderItem.quantity;
       let priceNow = price * orderItem.quantity;
       let earnF = priceNow - priceBuy;
-      let objetivo = (orderItem.price * orderItem.quantity) * 1.010;
+      let objetivo = (orderItem.price * orderItem.quantity) * 1.015;
       let trailingStop = await this.trailingStopLoss(orderItem, earnF, price, lastCandle, symbols);
       var localLoss = 0;
       var localEarn = 0;
@@ -73,7 +85,7 @@ export class OrderService {
 
             if (atualPrice <= takeLoss) {
               let martinSignal = orderItem.martinSignal + 1;
-              if (martinSignal >= 10) {
+              if (martinSignal >= 6) {
                 await OrderSchema.findOneAndUpdate({
                   _id: orderItem._id,
                 }, {
@@ -87,7 +99,7 @@ export class OrderService {
                   if(error) console.log(error);
                   if(!error) {
                     console.info("Martingale! " + response.orderId);
-                    this.createNewOrder(symbol, price, orderItem.quantity * 1.5, 'BUY', 'OPEN', 99);
+                    this.createNewOrder(symbol, price, response.origQty, 'BUY', 'OPEN', 99, response.orderId);
                   }
                 });
               } else {
@@ -118,7 +130,7 @@ export class OrderService {
     };
   }
 
-  public async createNewOrder(currency: string, price: number, quantity = 4, order = 'SELL', status = 'OPEN', martingale = 0) {
+  public async createNewOrder(currency: string, price: number, quantity = 4, order = 'SELL', status = 'OPEN', martingale = 0, orderId: any) {
     await OrderSchema.create({
       symbol: currency,
       time: new Date().getTime(),
@@ -126,6 +138,7 @@ export class OrderService {
       quantity: quantity.toString(),
       status,
       order: order,
+      orderId: orderId,
       martinGale: martingale
     });
   }
@@ -134,13 +147,13 @@ export class OrderService {
     let next = true;
     let originalPrice = orderItem.price * orderItem.quantity;
     let binanceTax = originalPrice / 1000;
-    let takeProfit = originalPrice * 1.010;
-    let takeLoss = originalPrice - (originalPrice * 0.015);
+    let takeProfit = originalPrice + (originalPrice * 0.015);
+    let takeLoss = originalPrice - (originalPrice * 0.005);
     let atualPrice = (price * orderItem.quantity);
     let balance = atualPrice - originalPrice;
     
     // console.log(`TP/TL: ${takeProfit.toFixed(2)}/${takeLoss.toFixed(2)}`, `NOW: ${atualPrice.toFixed(2)}`)
-    if (atualPrice >= takeProfit) {
+    if (atualPrice >= takeProfit && balance  >= binanceTax*3) {
       next = false;
       await this.closeOrder(orderItem, earnF.toString(), price, symbols);
       

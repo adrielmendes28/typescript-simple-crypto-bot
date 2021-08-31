@@ -12,25 +12,40 @@ class OrderService {
             APISECRET: process.env.API_SECRET
         });
     }
-    closeOrder(orderItem, earn, price) {
+    closeOrder(orderItem, earn, price, symbols) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            console.log(parseFloat(orderItem.quantity).toFixed(1));
-            this.binance.sell(orderItem.symbol, parseFloat(orderItem.quantity).toFixed(1), parseFloat(price).toFixed(3), { type: 'LIMIT' }, (error, response) => tslib_1.__awaiter(this, void 0, void 0, function* () {
-                if (!error) {
-                    console.info("VENDIDO: " + response.orderId);
-                    yield this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE');
-                    yield Order_1.default.findOneAndUpdate({
-                        _id: orderItem._id,
-                        symbol: orderItem.symbol,
-                        status: 'OPEN'
-                    }, {
-                        $set: {
-                            status: 'FINISH',
-                            earn: earn.toString()
+            let mySymbol = symbols.find((s) => s.symbol === orderItem.symbol);
+            this.binance.trades(orderItem.symbol, (error, trades, symbol) => {
+                var _a, _b, _c;
+                let mainTrade = trades.find((tr) => tr.orderId.toString() === orderItem.orderId);
+                if (mainTrade) {
+                    let { qty, commission } = mainTrade;
+                    let quantity = (qty - commission).toString();
+                    let newQuantity = (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? quantity.split('.').length > 0 && quantity.split('.')[0] + '.' + quantity.split('.')[1].substr(0, parseInt((_a = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) !== null && _a !== void 0 ? _a : 0)) : parseInt(quantity);
+                    let newPrice = (_c = (price.split('.').length > 0 && (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) > 0 && price.split('.')[0] + '.' + price.split('.')[1].substr(0, parseInt((_b = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) !== null && _b !== void 0 ? _b : 0)))) !== null && _c !== void 0 ? _c : price;
+                    console.log('realQuantity =>', quantity);
+                    this.binance.sell(orderItem.symbol, newQuantity, newPrice, { type: 'LIMIT' }, (error, response) => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                        if (error) {
+                            console.log('ERRO AO VENDER');
                         }
-                    });
+                        ;
+                        if (!error) {
+                            console.info("VENDIDO: " + response.orderId, earn);
+                            yield this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE', 0, response.orderId);
+                            yield Order_1.default.findOneAndUpdate({
+                                _id: orderItem._id,
+                                symbol: orderItem.symbol,
+                                status: 'OPEN'
+                            }, {
+                                $set: {
+                                    status: 'FINISH',
+                                    earn: earn.toString()
+                                }
+                            });
+                        }
+                    }));
                 }
-            }));
+            });
         });
     }
     setStopOrder(orderItem) {
@@ -43,7 +58,7 @@ class OrderService {
             yield Order_1.default.findOneAndUpdate({ _id: orderItem._id }, { $set: { sendProfit: true } });
         });
     }
-    verifyOpenOrders(symbol, price, lastCandle) {
+    verifyOpenOrders(symbol, price, lastCandle, symbols) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             var openOrders = yield Order_1.default.find({ status: 'OPEN', symbol });
             var floatingEarn = 0;
@@ -52,8 +67,8 @@ class OrderService {
                 let priceBuy = orderItem.price * orderItem.quantity;
                 let priceNow = price * orderItem.quantity;
                 let earnF = priceNow - priceBuy;
-                let objetivo = (orderItem.price * orderItem.quantity) * 1.010;
-                let trailingStop = yield this.trailingStopLoss(orderItem, earnF, price, lastCandle);
+                let objetivo = (orderItem.price * orderItem.quantity) * 1.015;
+                let trailingStop = yield this.trailingStopLoss(orderItem, earnF, price, lastCandle, symbols);
                 var localLoss = 0;
                 var localEarn = 0;
                 if (trailingStop.next) {
@@ -75,7 +90,7 @@ class OrderService {
                                 this.log.warn('MAX LOSS ', maxLoss, 'BUY AT ', orderItem.price);
                             if (atualPrice <= takeLoss) {
                                 let martinSignal = orderItem.martinSignal + 1;
-                                if (martinSignal >= 10) {
+                                if (martinSignal >= 6) {
                                     yield Order_1.default.findOneAndUpdate({
                                         _id: orderItem._id,
                                     }, {
@@ -90,7 +105,7 @@ class OrderService {
                                             console.log(error);
                                         if (!error) {
                                             console.info("Martingale! " + response.orderId);
-                                            this.createNewOrder(symbol, price, orderItem.quantity * 1.5, 'BUY', 'OPEN', 99);
+                                            this.createNewOrder(symbol, price, response.origQty, 'BUY', 'OPEN', 99, response.orderId);
                                         }
                                     });
                                 }
@@ -123,7 +138,7 @@ class OrderService {
             };
         });
     }
-    createNewOrder(currency, price, quantity = 4, order = 'SELL', status = 'OPEN', martingale = 0) {
+    createNewOrder(currency, price, quantity = 4, order = 'SELL', status = 'OPEN', martingale = 0, orderId) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             yield Order_1.default.create({
                 symbol: currency,
@@ -132,31 +147,32 @@ class OrderService {
                 quantity: quantity.toString(),
                 status,
                 order: order,
+                orderId: orderId,
                 martinGale: martingale
             });
         });
     }
-    trailingStopLoss(orderItem, earnF, price, lastCandle) {
+    trailingStopLoss(orderItem, earnF, price, lastCandle, symbols) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             let next = true;
             let originalPrice = orderItem.price * orderItem.quantity;
             let binanceTax = originalPrice / 1000;
-            let takeProfit = originalPrice * 1.010;
-            let takeLoss = originalPrice - (originalPrice * 0.015);
+            let takeProfit = originalPrice + (originalPrice * 0.015);
+            let takeLoss = originalPrice - (originalPrice * 0.005);
             let atualPrice = (price * orderItem.quantity);
             let balance = atualPrice - originalPrice;
-            if (atualPrice >= takeProfit) {
+            if (atualPrice >= takeProfit && balance >= binanceTax * 3) {
                 next = false;
-                yield this.closeOrder(orderItem, earnF.toString(), price);
+                yield this.closeOrder(orderItem, earnF.toString(), price, symbols);
             }
             if (atualPrice <= takeLoss) {
                 next = false;
-                yield this.closeOrder(orderItem, earnF.toString(), price);
+                yield this.closeOrder(orderItem, earnF.toString(), price, symbols);
                 ;
             }
             if (price >= (lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.high) && balance >= binanceTax * 3 && balance >= 0.1) {
                 next = false;
-                yield this.closeOrder(orderItem, earnF.toString(), price);
+                yield this.closeOrder(orderItem, earnF.toString(), price, symbols);
             }
             return {
                 next
