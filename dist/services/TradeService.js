@@ -17,7 +17,7 @@ class TradeService {
         this.candleStickService = new CandleStickService_1.CandleStickService;
         this.priceService = new PriceService_1.PriceService;
         this.orderBook = new OrderBookService_1.OrderBookService;
-        this.startAmount = 10;
+        this.startAmount = 15;
         this.log = require("log-beautify");
         this.orderService = new OrderService_1.OrderService;
     }
@@ -64,11 +64,19 @@ class TradeService {
                             let betterBid = lastBook === null || lastBook === void 0 ? void 0 : lastBook.bids[0];
                             lastCandle.low = ((lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids[0]) <= betterBid) ? betterBid : lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids[0];
                         }
-                        this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${parseFloat(lastCandle.low)}USDT`);
+                        let orderPrice = lastCandle.low.toFixed(3);
+                        this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}USDT`);
                         if (openOrders.length === 0) {
-                            if (lastPrice <= lastCandle.low) {
-                                yield this.orderService.createNewOrder(currency, lastPrice, (this.startAmount / lastPrice), 'BUY');
-                            }
+                            let quantity = (this.startAmount / orderPrice);
+                            this.binance.buy(currency, quantity.toFixed(1), orderPrice, { type: 'LIMIT' }, (error, response) => {
+                                if (error)
+                                    console.log('ERRO AO COMPRAR');
+                                if (!error) {
+                                    console.info("Limit Buy placed!", response);
+                                    console.info("order id: " + response.orderId);
+                                    this.orderService.createNewOrder(currency, orderPrice, quantity, 'BUY');
+                                }
+                            });
                         }
                     }
                     if (order == 'sell' && !buyForce) {

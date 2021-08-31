@@ -2,24 +2,45 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrderService = void 0;
 const tslib_1 = require("tslib");
+const node_binance_api_1 = tslib_1.__importDefault(require("node-binance-api"));
 const Order_1 = tslib_1.__importDefault(require("../schemas/Order"));
 class OrderService {
     constructor() {
         this.log = require("log-beautify");
+        this.binance = new node_binance_api_1.default().options({
+            APIKEY: process.env.API_KEY,
+            APISECRET: process.env.API_SECRET
+        });
     }
     closeOrder(orderItem, earn, price) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            yield this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE');
-            yield Order_1.default.findOneAndUpdate({
-                _id: orderItem._id,
-                symbol: orderItem.symbol,
-                status: 'OPEN'
-            }, {
-                $set: {
-                    status: 'FINISH',
-                    earn: earn.toString()
+            console.log(parseFloat(orderItem.quantity).toFixed(1));
+            this.binance.sell(orderItem.symbol, parseFloat(orderItem.quantity).toFixed(1), parseFloat(price).toFixed(3), { type: 'LIMIT' }, (error, response) => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                if (!error) {
+                    console.info("VENDIDO: " + response.orderId);
+                    yield this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE');
+                    yield Order_1.default.findOneAndUpdate({
+                        _id: orderItem._id,
+                        symbol: orderItem.symbol,
+                        status: 'OPEN'
+                    }, {
+                        $set: {
+                            status: 'FINISH',
+                            earn: earn.toString()
+                        }
+                    });
                 }
-            });
+            }));
+        });
+    }
+    setStopOrder(orderItem) {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            yield Order_1.default.findOneAndUpdate({ _id: orderItem._id }, { $set: { sendStop: true } });
+        });
+    }
+    setProfitOrder(orderItem) {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            yield Order_1.default.findOneAndUpdate({ _id: orderItem._id }, { $set: { sendProfit: true } });
         });
     }
     verifyOpenOrders(symbol, price, lastCandle) {
@@ -45,7 +66,7 @@ class OrderService {
                         floatingLoss += earnF;
                         if (price <= orderItem.price && orderItem.martinGale < 3) {
                             let maxMartinLoss = orderItem.martinGale == 0 ? 0.005 : (orderItem.martinGale == 1 ? 0.010 : (orderItem.martinGale == 2 ? 0.035 : 0.04));
-                            let maxLoss = (orderItem.price - maxMartinLoss);
+                            let maxLoss = (orderItem.price - (maxMartinLoss * orderItem.price));
                             let originalPrice = orderItem.price * orderItem.quantity;
                             let takeLoss = (originalPrice) - (originalPrice * maxMartinLoss);
                             let atualPrice = (price * orderItem.quantity);
@@ -64,7 +85,14 @@ class OrderService {
                                         }
                                     });
                                     this.log.error(`MAX LOSS REACHEAD ${takeLoss} OPENING MARTINGALE ${orderItem.martinGale + 1}`);
-                                    yield this.createNewOrder(symbol, price, orderItem.quantity * 2, 'BUY', 'OPEN', 99);
+                                    this.binance.buy(symbol, (orderItem.quantity * 1.5).toFixed(1), parseFloat(price).toFixed(3), { type: 'LIMIT' }, (error, response) => {
+                                        if (error)
+                                            console.log(error);
+                                        if (!error) {
+                                            console.info("Martingale! " + response.orderId);
+                                            this.createNewOrder(symbol, price, orderItem.quantity * 1.5, 'BUY', 'OPEN', 99);
+                                        }
+                                    });
                                 }
                                 else {
                                     yield Order_1.default.findOneAndUpdate({

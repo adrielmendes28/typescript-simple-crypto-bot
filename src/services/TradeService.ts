@@ -16,7 +16,7 @@ export class TradeService {
   private candleStickService = new CandleStickService;
   private priceService = new PriceService;
   private orderBook = new OrderBookService;
-  private startAmount = 10;
+  private startAmount = 15;
   private log = require("log-beautify");
   private orderService = new OrderService;
 
@@ -51,7 +51,7 @@ export class TradeService {
       var lastBook = await this.orderBook.getLastBook(currency);
       var lastCandle = await this.candleStickService.getLastCandle(currency);
       var rsiCheck = await this.nowRSI(currency);
-      var { floatingEarn, floatingLoss, openOrders } = await this.orderService.verifyOpenOrders(currency, lastPrice, lastCandle);
+      var { floatingEarn, floatingLoss, openOrders } = await this.orderService.verifyOpenOrders(currency, lastPrice, lastCandle, symbols);
 
       totalWin += floatingEarn;
       totalLoss += floatingLoss;
@@ -65,13 +65,24 @@ export class TradeService {
             let betterBid = lastBook?.bids[0];
             lastCandle.low = (lastBook?.wallsByBids[0] <= betterBid) ? betterBid : lastBook?.wallsByBids[0];
           }
-          this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${parseFloat(lastCandle.low)}USDT`);
+          let orderPrice = lastCandle.low.toString();
+          this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice.toFixed(3)}USDT`);
 
 
           if (openOrders.length === 0) {
-            if (lastPrice <= lastCandle.low) {
-              await this.orderService.createNewOrder(currency, lastPrice, (this.startAmount / lastPrice), 'BUY');
-            }
+            let mySymbol = symbols.find((s:any) => s.symbol === currency);
+            let quantity:any = (this.startAmount / orderPrice).toString();
+            let newQuantity = (quantity.split('.').length > 0 && mySymbol?.quantityDecimal > 0 && quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0))) ?? quantity;
+            let newPrice = (orderPrice.split('.').length > 0 && mySymbol?.priceDecimal > 0 && orderPrice.split('.')[0]+'.'+orderPrice.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ?? orderPrice;
+            
+            this.binance.buy(currency, newQuantity, newPrice, {type:'LIMIT'}, (error: any, response: any) => {
+              if(error) console.log('ERRO AO COMPRAR');
+              if(!error) {
+                console.info("Limit Buy placed!", response);
+                console.info("order id: " + response.orderId);
+                this.orderService.createNewOrder(currency, orderPrice, quantity, 'BUY');
+              }
+            });
           }
         }
         if (order == 'sell' && !buyForce) {

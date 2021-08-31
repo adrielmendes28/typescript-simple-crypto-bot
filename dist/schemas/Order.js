@@ -11,6 +11,8 @@ const OrderSchema = new mongoose_1.Schema({
     order: { type: String, required: false },
     martinGale: { type: Number, required: false, default: 0 },
     martinSignal: { type: Number, required: false, default: 0 },
+    sendStop: { type: String, required: false, default: false },
+    sendProfit: { type: String, required: false, default: false },
 });
 OrderSchema.set('timestamps', true);
 exports.default = mongoose_1.model("Order", OrderSchema);
