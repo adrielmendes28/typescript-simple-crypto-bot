@@ -11,6 +11,7 @@ class OrderService {
             APIKEY: process.env.API_KEY,
             APISECRET: process.env.API_SECRET
         });
+        this.startAmount = 25;
     }
     closeOrder(orderItem, earn, price, symbols) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
@@ -20,13 +21,16 @@ class OrderService {
                 let mainTrade = trades.find((tr) => tr.orderId.toString() === orderItem.orderId);
                 if (mainTrade) {
                     let { qty, commission } = mainTrade;
+                    let newPrice = (_b = (price.split('.').length > 0 && (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) > 0 && price.split('.')[0] + '.' + price.split('.')[1].substr(0, parseInt((_a = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) !== null && _a !== void 0 ? _a : 0)))) !== null && _b !== void 0 ? _b : price;
                     let quantity = (qty - commission).toString();
-                    let newQuantity = (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? quantity.split('.').length > 0 && quantity.split('.')[0] + '.' + quantity.split('.')[1].substr(0, parseInt((_a = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) !== null && _a !== void 0 ? _a : 0)) : parseInt(quantity);
-                    let newPrice = (_c = (price.split('.').length > 0 && (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) > 0 && price.split('.')[0] + '.' + price.split('.')[1].substr(0, parseInt((_b = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) !== null && _b !== void 0 ? _b : 0)))) !== null && _c !== void 0 ? _c : price;
+                    if ((quantity * Number(newPrice)) < 10) {
+                        quantity = orderItem.quantity;
+                    }
+                    let newQuantity = (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? quantity.split('.').length > 0 && quantity.split('.')[0] + '.' + quantity.split('.')[1].substr(0, parseInt((_c = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) !== null && _c !== void 0 ? _c : 0)) : parseInt(quantity);
                     console.log('realQuantity =>', quantity);
                     this.binance.sell(orderItem.symbol, newQuantity, newPrice, { type: 'LIMIT' }, (error, response) => tslib_1.__awaiter(this, void 0, void 0, function* () {
                         if (error) {
-                            console.log('ERRO AO VENDER');
+                            console.log('ERRO AO VENDER', error);
                         }
                         ;
                         if (!error) {
@@ -64,6 +68,7 @@ class OrderService {
             var floatingEarn = 0;
             var floatingLoss = 0;
             yield Promise.all(openOrders.map((orderItem) => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                var _a, _b;
                 let priceBuy = orderItem.price * orderItem.quantity;
                 let priceNow = price * orderItem.quantity;
                 let earnF = priceNow - priceBuy;
@@ -80,34 +85,38 @@ class OrderService {
                         localLoss = earnF;
                         floatingLoss += earnF;
                         if (price <= orderItem.price && orderItem.martinGale < 3) {
-                            let maxMartinLoss = orderItem.martinGale == 0 ? 0.005 : (orderItem.martinGale == 1 ? 0.010 : (orderItem.martinGale == 2 ? 0.035 : 0.04));
+                            let maxMartinLoss = 0.010;
                             let maxLoss = (orderItem.price - (maxMartinLoss * orderItem.price));
                             let originalPrice = orderItem.price * orderItem.quantity;
                             let takeLoss = (originalPrice) - (originalPrice * maxMartinLoss);
                             let atualPrice = (price * orderItem.quantity);
-                            let warningLoss = (orderItem.price - 0.003 * orderItem.price);
+                            let mySymbol = symbols.find((s) => s.symbol === symbol);
+                            let quantity = (this.startAmount / price).toString();
+                            let newQuantity = (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? (quantity.split('.').length > 0 && quantity.split('.')[0] + '.' + quantity.split('.')[1].substr(0, parseInt((_a = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) !== null && _a !== void 0 ? _a : 0))) : ((mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? quantity : parseInt(quantity));
+                            let newPrice = price.split('.').length > 0 ? price.split('.')[0] + '.' + price.split('.')[1].substr(0, parseInt((_b = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) !== null && _b !== void 0 ? _b : 0)) : price;
+                            let warningLoss = (orderItem.price - 0.005 * orderItem.price);
                             if (price <= warningLoss)
                                 this.log.warn('MAX LOSS ', maxLoss, 'BUY AT ', orderItem.price);
                             if (atualPrice <= takeLoss) {
                                 let martinSignal = orderItem.martinSignal + 1;
-                                if (martinSignal >= 6) {
-                                    yield Order_1.default.findOneAndUpdate({
-                                        _id: orderItem._id,
-                                    }, {
-                                        $set: {
-                                            martinGale: orderItem.martinGale + 1,
-                                            martinSignal: 0
-                                        }
-                                    });
+                                if (martinSignal >= 10) {
                                     this.log.error(`MAX LOSS REACHEAD ${takeLoss} OPENING MARTINGALE ${orderItem.martinGale + 1}`);
-                                    this.binance.buy(symbol, (orderItem.quantity * 1.5).toFixed(1), parseFloat(price).toFixed(3), { type: 'LIMIT' }, (error, response) => {
+                                    this.binance.buy(symbol, newQuantity, newPrice, { type: 'LIMIT' }, (error, response) => tslib_1.__awaiter(this, void 0, void 0, function* () {
                                         if (error)
                                             console.log(error);
                                         if (!error) {
                                             console.info("Martingale! " + response.orderId);
                                             this.createNewOrder(symbol, price, response.origQty, 'BUY', 'OPEN', 99, response.orderId);
+                                            yield Order_1.default.findOneAndUpdate({
+                                                _id: orderItem._id,
+                                            }, {
+                                                $set: {
+                                                    martinGale: 99,
+                                                    martinSignal: 0
+                                                }
+                                            });
                                         }
-                                    });
+                                    }));
                                 }
                                 else {
                                     yield Order_1.default.findOneAndUpdate({
@@ -156,21 +165,20 @@ class OrderService {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             let next = true;
             let originalPrice = orderItem.price * orderItem.quantity;
-            let binanceTax = originalPrice / 1000;
-            let takeProfit = originalPrice + (originalPrice * 0.015);
-            let takeLoss = originalPrice - (originalPrice * 0.005);
+            let binanceTax = (originalPrice / 1000) * 2;
+            let takeProfit = (originalPrice + (originalPrice * 0.005)) + binanceTax;
+            let takeLoss = (originalPrice - (originalPrice * 0.005)) + binanceTax;
             let atualPrice = (price * orderItem.quantity);
             let balance = atualPrice - originalPrice;
-            if (atualPrice >= takeProfit && balance >= binanceTax * 3) {
+            if (atualPrice >= takeProfit) {
                 next = false;
                 yield this.closeOrder(orderItem, earnF.toString(), price, symbols);
             }
             if (atualPrice <= takeLoss) {
                 next = false;
                 yield this.closeOrder(orderItem, earnF.toString(), price, symbols);
-                ;
             }
-            if (price >= (lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.high) && balance >= binanceTax * 3 && balance >= 0.1) {
+            if (price >= (lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.high) && balance >= binanceTax * 3 && balance >= 0.13) {
                 next = false;
                 yield this.closeOrder(orderItem, earnF.toString(), price, symbols);
             }

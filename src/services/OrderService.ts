@@ -7,6 +7,7 @@ export class OrderService {
     APIKEY: process.env.API_KEY,
     APISECRET: process.env.API_SECRET
   });
+  private startAmount = 25;
 
   public async closeOrder(orderItem: any, earn: any, price: any, symbols: any) {
     let mySymbol = symbols.find((s:any) => s.symbol === orderItem.symbol);
@@ -14,14 +15,17 @@ export class OrderService {
       let mainTrade = trades.find((tr: any) => tr.orderId.toString() === orderItem.orderId);
       if(mainTrade){
         let { qty,commission } = mainTrade;
+        let newPrice:any = (price.split('.').length >0  && mySymbol?.priceDecimal > 0 && price.split('.')[0]+'.'+price.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ?? price;
         let quantity:any = (qty -commission).toString();
-        let newQuantity = mySymbol?.quantityDecimal > 0 ? quantity.split('.').length > 0 &&  quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0)) :  parseInt(quantity);
-        let newPrice = (price.split('.').length > 0 && mySymbol?.priceDecimal > 0 && price.split('.')[0]+'.'+price.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ?? price;
+        if((quantity * Number(newPrice)) < 10){
+          quantity = orderItem.quantity;
+        }
+        let newQuantity = mySymbol?.quantityDecimal > 0 ? quantity.split('.').length >0  &&  quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0)) :  parseInt(quantity);
       
         console.log('realQuantity =>', quantity)
         this.binance.sell(orderItem.symbol, newQuantity, newPrice, {type:'LIMIT'}, async (error: any, response: any) => {
           if(error){
-            console.log('ERRO AO VENDER')
+            console.log('ERRO AO VENDER',error)
           };
           if(!error) {
             console.info("VENDIDO: " + response.orderId, earn);
@@ -74,32 +78,38 @@ export class OrderService {
           localLoss = earnF;
           floatingLoss += earnF;
           if (price <= orderItem.price && orderItem.martinGale < 3) {
-            let maxMartinLoss = orderItem.martinGale == 0 ? 0.005  : (orderItem.martinGale == 1 ? 0.010 : (orderItem.martinGale == 2 ? 0.035: 0.04 ))
+            let maxMartinLoss =  0.010;
             let maxLoss = (orderItem.price - (maxMartinLoss * orderItem.price));
             let originalPrice = orderItem.price * orderItem.quantity;
             let takeLoss = (originalPrice) - (originalPrice * maxMartinLoss);
             let atualPrice = (price * orderItem.quantity);
-            let warningLoss = (orderItem.price - 0.003 * orderItem.price);
+            let mySymbol = symbols.find((s:any) => s.symbol === symbol);
+            let quantity:any = (this.startAmount / price).toString();
+            let newQuantity =  mySymbol?.quantityDecimal > 0 ? (quantity.split('.').length >0   && quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0))) : (mySymbol?.quantityDecimal > 0 ? quantity : parseInt(quantity));
+            let newPrice = price.split('.').length >0  ? price.split('.')[0]+'.'+price.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0)) :  price;
+            
+            let warningLoss = (orderItem.price - 0.005 * orderItem.price);
             if (price <= warningLoss) this.log.warn('MAX LOSS ', maxLoss, 'BUY AT ', orderItem.price);
                        
 
             if (atualPrice <= takeLoss) {
               let martinSignal = orderItem.martinSignal + 1;
-              if (martinSignal >= 6) {
-                await OrderSchema.findOneAndUpdate({
-                  _id: orderItem._id,
-                }, {
-                  $set: {
-                    martinGale: orderItem.martinGale + 1,
-                    martinSignal: 0
-                  }
-                });
+              if (martinSignal >= 10) {
                 this.log.error(`MAX LOSS REACHEAD ${takeLoss} OPENING MARTINGALE ${orderItem.martinGale + 1}`);
-                this.binance.buy(symbol, (orderItem.quantity * 1.5).toFixed(1), parseFloat(price).toFixed(3), {type:'LIMIT'}, (error: any, response: any) => {
+                this.binance.buy(symbol, newQuantity, newPrice, {type:'LIMIT'}, async (error: any, response: any) => {
                   if(error) console.log(error);
                   if(!error) {
                     console.info("Martingale! " + response.orderId);
+                    
                     this.createNewOrder(symbol, price, response.origQty, 'BUY', 'OPEN', 99, response.orderId);
+                    await OrderSchema.findOneAndUpdate({
+                      _id: orderItem._id,
+                    }, {
+                      $set: {
+                        martinGale: 99,
+                        martinSignal: 0
+                      }
+                    });
                   }
                 });
               } else {
@@ -146,23 +156,24 @@ export class OrderService {
   public async trailingStopLoss(orderItem: any, earnF: any, price: any, lastCandle: any, symbols: any) {
     let next = true;
     let originalPrice = orderItem.price * orderItem.quantity;
-    let binanceTax = originalPrice / 1000;
-    let takeProfit = originalPrice + (originalPrice * 0.015);
-    let takeLoss = originalPrice - (originalPrice * 0.005);
+    let binanceTax = (originalPrice / 1000) * 2;
+    let takeProfit = (originalPrice + (originalPrice * 0.005)) + binanceTax;
+    let takeLoss = (originalPrice - (originalPrice * 0.005)) + binanceTax;
     let atualPrice = (price * orderItem.quantity);
+    // console.log(orderItem.symbol,'TP/TL', `${takeProfit}/${takeLoss}`, 'B/NOW', `${originalPrice}/${atualPrice}`)
     let balance = atualPrice - originalPrice;
     
     // console.log(`TP/TL: ${takeProfit.toFixed(2)}/${takeLoss.toFixed(2)}`, `NOW: ${atualPrice.toFixed(2)}`)
-    if (atualPrice >= takeProfit && balance  >= binanceTax*3) {
+    if (atualPrice >= takeProfit) {
       next = false;
       await this.closeOrder(orderItem, earnF.toString(), price, symbols);
       
     }
     if (atualPrice <= takeLoss) {
       next = false;
-      await this.closeOrder(orderItem, earnF.toString(), price, symbols);;
+      await this.closeOrder(orderItem, earnF.toString(), price, symbols);
     }
-    if (price >= lastCandle?.high  && balance  >= binanceTax*3 && balance >= 0.1) {
+    if (price >= lastCandle?.high  && balance  >= binanceTax*3 && balance >= 0.13) {
       next = false;
       await this.closeOrder(orderItem, earnF.toString(), price, symbols);
     }
