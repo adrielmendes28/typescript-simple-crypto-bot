@@ -20,7 +20,7 @@ class CandleStickService {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             let candles = yield CandleManagement_1.default.findOne({ symbol: symbol });
             candles = (_a = (candles && candles.candles && (candles === null || candles === void 0 ? void 0 : candles.candles.sort((a, b) => a.time - b.time)))) !== null && _a !== void 0 ? _a : [];
-            var data = (_b = candles.map((candle) => candle.close)) !== null && _b !== void 0 ? _b : [];
+            var data = (_b = candles.slice(14).map((candle) => candle.close)) !== null && _b !== void 0 ? _b : [];
             let stochasticrsiInput = {
                 values: data,
                 kPeriod: 3,

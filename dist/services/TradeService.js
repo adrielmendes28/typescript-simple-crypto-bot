@@ -4,7 +4,6 @@ exports.TradeService = void 0;
 const tslib_1 = require("tslib");
 const node_binance_api_1 = tslib_1.__importDefault(require("node-binance-api"));
 const Order_1 = tslib_1.__importDefault(require("../schemas/Order"));
-const PriceService_1 = require("../services/PriceService");
 const OrderService_1 = require("../services/OrderService");
 const OrderBookService_1 = require("../services/OrderBookService");
 const CandleStickService_1 = require("../services/CandleStickService");
@@ -16,8 +15,9 @@ class TradeService {
             APISECRET: process.env.API_SECRET
         });
         this.candleStickService = new CandleStickService_1.CandleStickService;
-        this.priceService = new PriceService_1.PriceService;
         this.orderBook = new OrderBookService_1.OrderBookService;
+        this.profitRate = 0.0062713;
+        this.lossRate = 0.0082713;
         this.startAmount = 30;
         this.log = require("log-beautify");
         this.orderService = new OrderService_1.OrderService;
@@ -55,20 +55,20 @@ class TradeService {
                 var { floatingEarn, floatingLoss, openOrders } = yield this.orderService.verifyOpenOrders(currency, lastPrice, lastCandle, symbols);
                 totalWin += floatingEarn;
                 totalLoss += floatingLoss;
-                this.log.info(`${currency} - PRICE: ${lastPrice} - LOW: ${lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.low} - HIGH: ${lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.high} `);
+                if ((lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids.length) > 0 && lastPrice > lastCandle.low * 1.2) {
+                    let betterBid = lastBook === null || lastBook === void 0 ? void 0 : lastBook.bids[0];
+                    lastCandle.low = ((lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids[0]) <= betterBid) ? betterBid : lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids[0];
+                }
+                let orderPrice = lastCandle.low.toString();
+                this.log.info(`${currency} - PRICE: ${lastPrice} - LOW: ${orderPrice} - HIGH: ${lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.high} `);
                 if (rsiCheck.haveSignal) {
                     let order = rsiCheck.stoch.signal.buy ? 'buy' : 'sell';
-                    let buyForce = ((_a = lastBook === null || lastBook === void 0 ? void 0 : lastBook.interest) === null || _a === void 0 ? void 0 : _a.buy) >= 61;
-                    let sellForce = ((_b = lastBook === null || lastBook === void 0 ? void 0 : lastBook.interest) === null || _b === void 0 ? void 0 : _b.sell) >= 61;
+                    let buyForce = ((_a = lastBook === null || lastBook === void 0 ? void 0 : lastBook.interest) === null || _a === void 0 ? void 0 : _a.buy) >= 62;
+                    let sellForce = ((_b = lastBook === null || lastBook === void 0 ? void 0 : lastBook.interest) === null || _b === void 0 ? void 0 : _b.sell) >= 62;
                     if (order == 'buy' && sellForce) {
-                        if ((lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids.length) > 0 && lastPrice > lastCandle.low * 1.2) {
-                            let betterBid = lastBook === null || lastBook === void 0 ? void 0 : lastBook.bids[0];
-                            lastCandle.low = ((lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids[0]) <= betterBid) ? betterBid : lastBook === null || lastBook === void 0 ? void 0 : lastBook.wallsByBids[0];
-                        }
-                        let orderPrice = lastCandle.low.toString();
-                        this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}USDT`);
+                        this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}/${parseFloat(orderPrice) * 1.001}`);
                         let checkOrdersAgain = yield Order_1.default.find({ status: 'OPEN', symbol: currency });
-                        if (checkOrdersAgain.length === 0 && parseFloat(lastPrice) <= parseFloat(orderPrice)) {
+                        if (checkOrdersAgain.length === 0 && parseFloat(lastPrice) <= (parseFloat(orderPrice) * 1.001)) {
                             let mySymbol = symbols.find((s) => s.symbol === currency);
                             let quantity = (this.startAmount / orderPrice).toString();
                             let newQuantity = (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? (quantity.split('.').length > 0 && quantity.split('.')[0] + '.' + quantity.split('.')[1].substr(0, parseInt((_c = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) !== null && _c !== void 0 ? _c : 0))) : ((mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? quantity : parseInt(quantity));
@@ -79,7 +79,7 @@ class TradeService {
                                 if (!error) {
                                     console.info("Limit Buy placed!", response);
                                     console.info("order id: " + response.orderId);
-                                    this.orderService.createNewOrder(currency, orderPrice, response.origQty, 'BUY', 'OPEN', 0, response.orderId);
+                                    this.orderService.createNewOrder(currency, orderPrice, response.origQty, 'BUY', 'OPEN', 0, response.orderId, this.profitRate, this.lossRate);
                                 }
                             });
                         }

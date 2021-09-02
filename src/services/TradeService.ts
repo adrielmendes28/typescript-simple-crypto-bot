@@ -18,7 +18,7 @@ export class TradeService {
   private orderBook = new OrderBookService;
   private profitRate = 0.0062713;
   private lossRate = 0.0082713;
-  private startAmount = 25;
+  private startAmount = 30;
   private log = require("log-beautify");
   private orderService = new OrderService;
 
@@ -56,20 +56,20 @@ export class TradeService {
 
       totalWin += floatingEarn;
       totalLoss += floatingLoss;
-      this.log.info(`${currency} - PRICE: ${lastPrice} - LOW: ${lastCandle?.low} - HIGH: ${lastCandle?.high} `);
+      if (lastBook?.wallsByBids.length > 0 && lastPrice > lastCandle.low * 1.2) {
+        let betterBid = lastBook?.bids[0];
+        lastCandle.low = (lastBook?.wallsByBids[0] <= betterBid) ? betterBid : lastBook?.wallsByBids[0];
+      }
+      let orderPrice = lastCandle.low.toString();
+      this.log.info(`${currency} - PRICE: ${lastPrice} - LOW: ${orderPrice} - HIGH: ${lastCandle?.high} `);
       if (rsiCheck.haveSignal) {   
         let order = rsiCheck.stoch.signal.buy ? 'buy' : 'sell';
-        let buyForce = lastBook?.interest?.buy >= 61;
-        let sellForce = lastBook?.interest?.sell >= 61;
-        if (order == 'buy' && sellForce) {
-          if (lastBook?.wallsByBids.length > 0 && lastPrice > lastCandle.low * 1.2) {
-            let betterBid = lastBook?.bids[0];
-            lastCandle.low = (lastBook?.wallsByBids[0] <= betterBid) ? betterBid : lastBook?.wallsByBids[0];
-          }
-          let orderPrice = lastCandle.low.toString();
-          this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}USDT`);
+        let buyForce = lastBook?.interest?.buy >= 62;
+        let sellForce = lastBook?.interest?.sell >= 62;
+        if (order == 'buy' && sellForce) {          
+          this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}/${parseFloat(orderPrice) * 1.001}`);
           let checkOrdersAgain = await OrderSchema.find({ status: 'OPEN', symbol: currency });
-          if (checkOrdersAgain.length === 0  && parseFloat(lastPrice) <= (parseFloat(orderPrice) * 0.95)) {
+          if (checkOrdersAgain.length === 0  && parseFloat(lastPrice) <= (parseFloat(orderPrice)  * 1.001)) {
             let mySymbol = symbols.find((s:any) => s.symbol === currency);
             let quantity:any = (this.startAmount / orderPrice).toString();
             let newQuantity =  mySymbol?.quantityDecimal > 0 ? (quantity.split('.').length >0   && quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0))) : (mySymbol?.quantityDecimal > 0 ? quantity : parseInt(quantity));

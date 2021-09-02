@@ -9,54 +9,55 @@ export class OrderService {
   });
   private profitRate = 0.0062713;
   private lossRate = 0.0082713;
-  private startAmount = 25;
+  private startAmount = 30;
 
   public async closeOrder(orderItem: any, earn: any, price: any, symbols: any) {
     let mySymbol = symbols.find((s:any) => s.symbol === orderItem.symbol);
     let myCoin = orderItem.symbol.replace('USDT','');
-
-    this.binance.balance((error:any, balances:any) => {
-      if ( error )  console.error(error);
-      if(!error){
-        let newPrice:any = (price.split('.').length >0  && mySymbol?.priceDecimal > 0 && price.split('.')[0]+'.'+price.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ?? price;
-        let coinsAvailable = balances[myCoin]?.available;
-        let quantity = orderItem.quantity ?? 0;
-        if(orderItem.quantity > coinsAvailable) {
-          if(coinsAvailable > 0){
-            quantity = coinsAvailable
-          }
-        }
-
-        if(orderItem.quantity < coinsAvailable) {
-          if((coinsAvailable - orderItem.quantity) <= 15){
-            quantity = coinsAvailable
-          }
-        }
-        let newQuantity = mySymbol?.quantityDecimal > 0 ? quantity.split('.').length >0  &&  quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0)) :  parseInt(quantity);
-      
-        console.log('realQuantity =>', quantity, coinsAvailable, myCoin, orderItem.quantity);
-        this.binance.sell(orderItem.symbol, newQuantity, newPrice, {type:'LIMIT'}, async (error: any, response: any) => {
-          if(error){
-            console.log('ERRO AO VENDER',error)
-          };
-          if(!error) {
-            console.info("VENDIDO: " + response.orderId, earn);
-            await this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE',0, response.orderId,this.profitRate, this.lossRate);
-            await OrderSchema.findOneAndUpdate({
-              _id: orderItem._id,
-            }, {
-              $set: {
-                status: 'FINISH',
-                earn: earn.toString()
+    this.binance.openOrders(orderItem.symbol, (error:any, openOrders:any, symbol:any) => {
+      let mainTrade = openOrders.find((tr: any) => tr.orderId.toString() === orderItem.orderId);
+      if(!mainTrade){
+        this.binance.balance((error:any, balances:any) => {
+          if(error) console.error(error);
+          if(!error){
+            let newPrice:any = (price.split('.').length >0  && mySymbol?.priceDecimal > 0 && price.split('.')[0]+'.'+price.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ?? price;
+            let coinsAvailable = balances[myCoin]?.available;
+            let quantity = orderItem.quantity ?? 0;
+            if(orderItem.quantity > coinsAvailable) {
+              if(coinsAvailable > 0){
+                quantity = coinsAvailable
               }
+            }
+
+            if(orderItem.quantity < coinsAvailable) {
+              if((coinsAvailable - orderItem.quantity) <= 15){
+                quantity = coinsAvailable
+              }
+            }
+            let newQuantity = mySymbol?.quantityDecimal > 0 ? quantity.split('.').length >0  &&  quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0)) :  parseInt(quantity);
+          
+            console.log('realQuantity =>', quantity, coinsAvailable, myCoin, orderItem.quantity);
+            this.binance.sell(orderItem.symbol, newQuantity, newPrice, {type:'LIMIT'}, async (error: any, response: any) => {
+              if(error){
+                console.log('ERRO AO VENDER',error)
+              };
+              if(!error) {
+                console.info("VENDIDO: " + response.orderId, earn);
+                await this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE',0, response.orderId,this.profitRate, this.lossRate);
+                await OrderSchema.findOneAndUpdate({
+                  _id: orderItem._id,
+                }, {
+                  $set: {
+                    status: 'FINISH',
+                    earn: earn.toString()
+                  }
+                });
+            }
             });
-        }
+          }
         });
       }
     });
-
-   
-  
   }
 
   public async setStopOrder(orderItem: any){
