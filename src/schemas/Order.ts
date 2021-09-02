@@ -14,6 +14,9 @@ const OrderSchema: Schema = new Schema({
   martinSignal: { type: Number, required: false, default: 0 },
   sendStop: { type: String, required: false, default: false },
   sendProfit: { type: String, required: false, default: false },
+  stopLoss: {type: String, required: false, default: false},
+  takeProfit: {type: String, required: false, default: false},
+  originalPrice: {type: String, required: false, default: false},
 });
 
 OrderSchema.set('timestamps', true);

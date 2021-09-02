@@ -22,6 +22,7 @@ class OrderBookService {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             let symbols = yield new SymbolService_1.SymbolService().getSymbols();
             symbols = symbols.map((s) => s.symbol);
+            console.log(symbols);
             yield this.binance.websockets.depthCache(symbols, (symbol, depth) => tslib_1.__awaiter(this, void 0, void 0, function* () {
                 let bids = this.binance.sortBids(depth.bids);
                 let asks = this.binance.sortAsks(depth.asks);

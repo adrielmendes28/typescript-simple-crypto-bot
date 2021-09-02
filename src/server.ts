@@ -15,9 +15,9 @@ export default class CryptoBotServer {
   }
 
   private async setupDatabase() {
-    const mongod = await MongoMemoryServer.create();
-    const connString = mongod.getUri();
-    // const connString = "mongodb://localhost:27017/cryptobot";
+    // const mongod = await MongoMemoryServer.create();
+    // const connString = mongod.getUri();
+    const connString = "mongodb://localhost:27017/cryptobot";
 
     Mongoose.connect(connString, {
       useNewUrlParser: true,

@@ -52,7 +52,7 @@ class CandleStickService {
             let symbols = yield new SymbolService_1.SymbolService().getSymbols();
             symbols = symbols.map((s) => s.symbol);
             yield Promise.all(symbols.map((s) => {
-                this.binance.websockets.chart(symbols, "5m", (symbol, interval, chart) => tslib_1.__awaiter(this, void 0, void 0, function* () {
+                this.binance.websockets.chart(s, "5m", (symbol, interval, chart) => tslib_1.__awaiter(this, void 0, void 0, function* () {
                     let tick = this.binance.last(chart);
                     let lastCan = chart[tick];
                     let candles = Object.keys(chart).map((time) => {

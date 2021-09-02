@@ -15,20 +15,20 @@ export class TradeService {
     APISECRET: process.env.API_SECRET
   });
   private candleStickService = new CandleStickService;
-  private priceService = new PriceService;
   private orderBook = new OrderBookService;
+  private profitRate = 0.0062713;
+  private lossRate = 0.0082713;
   private startAmount = 25;
   private log = require("log-beautify");
   private orderService = new OrderService;
 
   public async nowRSI(symbol: string): Promise<any> {
     let stochRSI = await this.candleStickService.calculateStochasticRSI(symbol);
-
     let stochRSIVal = stochRSI[stochRSI.length - 1];
-    // console.log('stochRSI', stochRSIVal?.stochRSI, symbol);
+
     stochRSIVal = {
       overBought: stochRSIVal?.stochRSI >= 80,
-      overSold: stochRSIVal?.stochRSI <= 40,
+      overSold: stochRSIVal?.stochRSI <= 18,
       rsiVal: stochRSIVal?.stochRSI,
     };
     return {
@@ -57,7 +57,7 @@ export class TradeService {
       totalWin += floatingEarn;
       totalLoss += floatingLoss;
       this.log.info(`${currency} - PRICE: ${lastPrice} - LOW: ${lastCandle?.low} - HIGH: ${lastCandle?.high} `);
-      if (rsiCheck.haveSignal) {
+      if (rsiCheck.haveSignal) {   
         let order = rsiCheck.stoch.signal.buy ? 'buy' : 'sell';
         let buyForce = lastBook?.interest?.buy >= 61;
         let sellForce = lastBook?.interest?.sell >= 61;
@@ -69,18 +69,18 @@ export class TradeService {
           let orderPrice = lastCandle.low.toString();
           this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}USDT`);
           let checkOrdersAgain = await OrderSchema.find({ status: 'OPEN', symbol: currency });
-          if (checkOrdersAgain.length === 0  && parseFloat(lastPrice) <= parseFloat(orderPrice)) {
+          if (checkOrdersAgain.length === 0  && parseFloat(lastPrice) <= (parseFloat(orderPrice) * 0.95)) {
             let mySymbol = symbols.find((s:any) => s.symbol === currency);
             let quantity:any = (this.startAmount / orderPrice).toString();
             let newQuantity =  mySymbol?.quantityDecimal > 0 ? (quantity.split('.').length >0   && quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0))) : (mySymbol?.quantityDecimal > 0 ? quantity : parseInt(quantity));
-            let newPrice = orderPrice.split('.').length >0  ? orderPrice.split('.')[0]+'.'+orderPrice.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0)) :  orderPrice;
+            let newPrice = orderPrice.split('.').length > 1  ? orderPrice.split('.')[0]+'.'+orderPrice.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0)) :  orderPrice;
             
             this.binance.buy(currency, newQuantity, newPrice, {type:'LIMIT'}, (error: any, response: any) => {
-              if(error) console.log('ERRO AO COMPRAR',error, newQuantity, newPrice);
+              if(error) console.log('ERRO AO COMPRAR',error.body, newQuantity, newPrice);
               if(!error) {
                 console.info("Limit Buy placed!", response);
                 console.info("order id: " + response.orderId);
-                this.orderService.createNewOrder(currency, orderPrice, response.origQty, 'BUY','OPEN',0, response.orderId);
+                this.orderService.createNewOrder(currency, orderPrice, response.origQty, 'BUY','OPEN',0, response.orderId, this.profitRate, this.lossRate);
               }
             });
           }

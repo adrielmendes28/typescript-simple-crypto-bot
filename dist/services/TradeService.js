@@ -18,7 +18,7 @@ class TradeService {
         this.candleStickService = new CandleStickService_1.CandleStickService;
         this.priceService = new PriceService_1.PriceService;
         this.orderBook = new OrderBookService_1.OrderBookService;
-        this.startAmount = 25;
+        this.startAmount = 30;
         this.log = require("log-beautify");
         this.orderService = new OrderService_1.OrderService;
     }
@@ -28,7 +28,7 @@ class TradeService {
             let stochRSIVal = stochRSI[stochRSI.length - 1];
             stochRSIVal = {
                 overBought: (stochRSIVal === null || stochRSIVal === void 0 ? void 0 : stochRSIVal.stochRSI) >= 80,
-                overSold: (stochRSIVal === null || stochRSIVal === void 0 ? void 0 : stochRSIVal.stochRSI) <= 40,
+                overSold: (stochRSIVal === null || stochRSIVal === void 0 ? void 0 : stochRSIVal.stochRSI) <= 18,
                 rsiVal: stochRSIVal === null || stochRSIVal === void 0 ? void 0 : stochRSIVal.stochRSI,
             };
             return {
@@ -72,10 +72,10 @@ class TradeService {
                             let mySymbol = symbols.find((s) => s.symbol === currency);
                             let quantity = (this.startAmount / orderPrice).toString();
                             let newQuantity = (mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? (quantity.split('.').length > 0 && quantity.split('.')[0] + '.' + quantity.split('.')[1].substr(0, parseInt((_c = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) !== null && _c !== void 0 ? _c : 0))) : ((mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.quantityDecimal) > 0 ? quantity : parseInt(quantity));
-                            let newPrice = orderPrice.split('.').length > 0 ? orderPrice.split('.')[0] + '.' + orderPrice.split('.')[1].substr(0, parseInt((_d = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) !== null && _d !== void 0 ? _d : 0)) : orderPrice;
+                            let newPrice = orderPrice.split('.').length > 1 ? orderPrice.split('.')[0] + '.' + orderPrice.split('.')[1].substr(0, parseInt((_d = mySymbol === null || mySymbol === void 0 ? void 0 : mySymbol.priceDecimal) !== null && _d !== void 0 ? _d : 0)) : orderPrice;
                             this.binance.buy(currency, newQuantity, newPrice, { type: 'LIMIT' }, (error, response) => {
                                 if (error)
-                                    console.log('ERRO AO COMPRAR', error, newQuantity, newPrice);
+                                    console.log('ERRO AO COMPRAR', error.body, newQuantity, newPrice);
                                 if (!error) {
                                     console.info("Limit Buy placed!", response);
                                     console.info("order id: " + response.orderId);

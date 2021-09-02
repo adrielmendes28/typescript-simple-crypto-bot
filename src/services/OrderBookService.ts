@@ -21,7 +21,7 @@ export class OrderBookService {
     let symbols: any = await new SymbolService().getSymbols();
     symbols = symbols.map((s: any) => s.symbol);
     
-
+    console.log(symbols);
     await this.binance.websockets.depthCache(symbols, async (symbol: string, depth: { bids: any; asks: any; eventTime:any; lastUpdateId: any; }) => {
       let bids = this.binance.sortBids(depth.bids);
       let asks = this.binance.sortAsks(depth.asks);

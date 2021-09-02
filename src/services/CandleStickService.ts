@@ -16,7 +16,7 @@ export class CandleStickService {
   public async calculateStochasticRSI(symbol:string): Promise<any> {
     let candles:any = await CandleManagement.findOne({ symbol: symbol });
     candles = (candles && candles.candles && candles?.candles.sort((a:any, b:any) => a.time - b.time))  ?? [];
-    var data = candles.map((candle:any) => candle.close) ?? [];
+    var data = candles.slice(14).map((candle:any) => candle.close) ?? [];
     let stochasticrsiInput = {
         values: data,
         kPeriod: 3,
@@ -46,7 +46,7 @@ export class CandleStickService {
     let symbols: any = await new SymbolService().getSymbols();
     symbols = symbols.map((s: any) => s.symbol);
     await Promise.all(symbols.map((s: any) => {
-      this.binance.websockets.chart(symbols, "5m", async (symbol: any, interval: any, chart:any) => {
+      this.binance.websockets.chart(s, "5m", async (symbol: any, interval: any, chart:any) => {
         let tick = this.binance.last(chart);
         let lastCan = chart[tick];
         let candles = Object.keys(chart).map((time: any) => {
