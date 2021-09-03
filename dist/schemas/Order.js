@@ -17,6 +17,7 @@ const OrderSchema = new mongoose_1.Schema({
     stopLoss: { type: String, required: false, default: false },
     takeProfit: { type: String, required: false, default: false },
     originalPrice: { type: String, required: false, default: false },
+    active: { type: Boolean, required: false, default: false },
 });
 OrderSchema.set('timestamps', true);
 exports.default = mongoose_1.model("Order", OrderSchema);

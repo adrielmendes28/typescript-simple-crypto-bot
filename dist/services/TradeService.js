@@ -16,9 +16,9 @@ class TradeService {
         });
         this.candleStickService = new CandleStickService_1.CandleStickService;
         this.orderBook = new OrderBookService_1.OrderBookService;
-        this.profitRate = 0.0062713;
+        this.profitRate = 0.0262713;
         this.lossRate = 0.0082713;
-        this.startAmount = 30;
+        this.startAmount = 15;
         this.log = require("log-beautify");
         this.orderService = new OrderService_1.OrderService;
     }
@@ -65,7 +65,7 @@ class TradeService {
                     let order = rsiCheck.stoch.signal.buy ? 'buy' : 'sell';
                     let buyForce = ((_a = lastBook === null || lastBook === void 0 ? void 0 : lastBook.interest) === null || _a === void 0 ? void 0 : _a.buy) >= 62;
                     let sellForce = ((_b = lastBook === null || lastBook === void 0 ? void 0 : lastBook.interest) === null || _b === void 0 ? void 0 : _b.sell) >= 62;
-                    if (order == 'buy' && sellForce) {
+                    if (order == 'buy' && !sellForce) {
                         this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}/${parseFloat(orderPrice) * 1.001}`);
                         let checkOrdersAgain = yield Order_1.default.find({ status: 'OPEN', symbol: currency });
                         if (checkOrdersAgain.length === 0 && parseFloat(lastPrice) <= (parseFloat(orderPrice) * 1.001)) {
@@ -84,7 +84,7 @@ class TradeService {
                             });
                         }
                     }
-                    if (order == 'sell' && buyForce) {
+                    if (order == 'sell' && !buyForce) {
                         this.log.error(`${currency} SIGNAL ${order.toUpperCase()} AT ` + (lastCandle === null || lastCandle === void 0 ? void 0 : lastCandle.high));
                     }
                 }

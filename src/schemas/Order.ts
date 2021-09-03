@@ -17,6 +17,7 @@ const OrderSchema: Schema = new Schema({
   stopLoss: {type: String, required: false, default: false},
   takeProfit: {type: String, required: false, default: false},
   originalPrice: {type: String, required: false, default: false},
+  active: {type: Boolean, required: false, default: false},
 });
 
 OrderSchema.set('timestamps', true);

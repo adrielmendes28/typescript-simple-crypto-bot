@@ -7,19 +7,19 @@ export class OrderService {
     APIKEY: process.env.API_KEY,
     APISECRET: process.env.API_SECRET
   });
-  private profitRate = 0.0062713;
+  private profitRate = 0.0262713;
   private lossRate = 0.0082713;
   private startAmount = 30;
 
   public async closeOrder(orderItem: any, earn: any, price: any, symbols: any) {
     let mySymbol = symbols.find((s:any) => s.symbol === orderItem.symbol);
     let myCoin = orderItem.symbol.replace('USDT','');
-    this.binance.openOrders(orderItem.symbol, (error:any, openOrders:any, symbol:any) => {
+    this.binance.openOrders(orderItem.symbol, (errorOpenDoors:any, openOrders:any, symbol:any) => {
       let mainTrade = openOrders.find((tr: any) => tr.orderId.toString() === orderItem.orderId);
       if(!mainTrade){
-        this.binance.balance((error:any, balances:any) => {
-          if(error) console.error(error);
-          if(!error){
+        this.binance.balance((errorBalance:any, balances:any) => {
+          if(errorBalance) console.error(errorBalance.body);
+          if(!errorBalance){
             let newPrice:any = (price.split('.').length >0  && mySymbol?.priceDecimal > 0 && price.split('.')[0]+'.'+price.split('.')[1].substr(0,parseInt(mySymbol?.priceDecimal ?? 0))) ?? price;
             let coinsAvailable = balances[myCoin]?.available;
             let quantity = orderItem.quantity ?? 0;
@@ -29,19 +29,19 @@ export class OrderService {
               }
             }
 
-            if(orderItem.quantity < coinsAvailable) {
-              if((coinsAvailable - orderItem.quantity) <= 15){
+            if(coinsAvailable > orderItem.quantity) {
+              if(((parseFloat(coinsAvailable) - parseFloat(orderItem.quantity)) * parseFloat(newPrice)) < (this.startAmount/2)){
                 quantity = coinsAvailable
               }
             }
             let newQuantity = mySymbol?.quantityDecimal > 0 ? quantity.split('.').length >0  &&  quantity.split('.')[0]+'.'+quantity.split('.')[1].substr(0,parseInt(mySymbol?.quantityDecimal ?? 0)) :  parseInt(quantity);
           
             console.log('realQuantity =>', quantity, coinsAvailable, myCoin, orderItem.quantity);
-            this.binance.sell(orderItem.symbol, newQuantity, newPrice, {type:'LIMIT'}, async (error: any, response: any) => {
-              if(error){
-                console.log('ERRO AO VENDER',error)
+            this.binance.sell(orderItem.symbol, newQuantity, newPrice, {type:'LIMIT'}, async (errorSell: any, response: any) => {
+              if(errorSell){
+                console.log('ERRO AO VENDER',errorSell.body)
               };
-              if(!error) {
+              if(!errorSell) {
                 console.info("VENDIDO: " + response.orderId, earn);
                 await this.createNewOrder(orderItem.symbol, price, orderItem.quantity, 'SELL', 'CLOSE',0, response.orderId,this.profitRate, this.lossRate);
                 await OrderSchema.findOneAndUpdate({
@@ -68,12 +68,24 @@ export class OrderService {
     await OrderSchema.findOneAndUpdate({_id: orderItem._id}, {$set:{ sendProfit: true}})
   }
   
-  public async verifyOpenOrders(symbol: string, price: any, lastCandle: any, symbols: any) {              
-                
+  public async verifyOpenOrders(symbol: string, price: any, lastCandle: any, symbols: any) {   
     var openOrders = await OrderSchema.find({ status: 'OPEN', symbol });
+        
+    await Promise.all(openOrders.map(async (orderItem: any) => {   
+      this.binance.openOrders(symbol, async (errorOpenDoors:any, openOrderss:any, symbol:any) => {
+        let mainTrade = JSON.parse(JSON.stringify(openOrderss)).find((tr: any) => tr.orderId.toString() === orderItem.orderId);
+        if(!mainTrade){
+          await OrderSchema.findOneAndUpdate({_id: orderItem._id}, {$set: {
+            active: true
+          }});
+         }
+      });               
+    }));
+    
+    var activeOrders = await OrderSchema.find({ status: 'OPEN', symbol, active: true });    
     var floatingEarn = 0;
     var floatingLoss = 0;
-    await Promise.all(openOrders.map(async (orderItem: any) => {   
+    await Promise.all(activeOrders.map(async (orderItem: any) => {   
       let priceBuy = orderItem.price * orderItem.quantity;
       let priceNow = price * orderItem.quantity;
       let earnF = priceNow - priceBuy;
@@ -182,23 +194,23 @@ export class OrderService {
   public async trailingStopLoss(orderItem: any, earnF: any, price: any, lastCandle: any, symbols: any) {
     let next = true;
     let {originalPrice, stopLoss, takeProfit} = orderItem;
-    let binanceTax = (originalPrice / 1000) * 2.1;
+    let binanceTax = (originalPrice / 1000) * 2.5;
     let atualPrice = (price * orderItem.quantity);
     let balance = atualPrice - originalPrice;
    
     if(balance >= binanceTax){
-      let update = this.calculateRates(atualPrice, this.profitRate, 0.0012);
-      await OrderSchema.findOneAndUpdate({_id: orderItem._id}, {
-        $set:{
-          stopLoss: update.stopLoss,
-          // takeProfit: update.takeProfit
-        }
-      });
-      // takeProfit = update.takeProfit;
-      stopLoss = update.stopLoss;
+      let update = this.calculateRates(atualPrice, this.profitRate, 0.002713);
+      if(update.stopLoss > stopLoss){
+        await OrderSchema.findOneAndUpdate({_id: orderItem._id}, {
+          $set:{
+            stopLoss: update.stopLoss.toString()
+          }
+        });
+        stopLoss = update.stopLoss;
+      }
     }
    
-    if (atualPrice >= (takeProfit * 0.95)) {
+    if (atualPrice >= takeProfit) {
       next = false;
       await this.closeOrder(orderItem, balance.toString(), price, symbols);
     }

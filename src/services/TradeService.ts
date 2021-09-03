@@ -16,9 +16,9 @@ export class TradeService {
   });
   private candleStickService = new CandleStickService;
   private orderBook = new OrderBookService;
-  private profitRate = 0.0062713;
+  private profitRate = 0.0262713;
   private lossRate = 0.0082713;
-  private startAmount = 30;
+  private startAmount = 15;
   private log = require("log-beautify");
   private orderService = new OrderService;
 
@@ -66,7 +66,7 @@ export class TradeService {
         let order = rsiCheck.stoch.signal.buy ? 'buy' : 'sell';
         let buyForce = lastBook?.interest?.buy >= 62;
         let sellForce = lastBook?.interest?.sell >= 62;
-        if (order == 'buy' && sellForce) {          
+        if (order == 'buy' && !sellForce) {          
           this.log.success(`${currency} SIGNAL ${order.toUpperCase()} ON ${orderPrice}/${parseFloat(orderPrice) * 1.001}`);
           let checkOrdersAgain = await OrderSchema.find({ status: 'OPEN', symbol: currency });
           if (checkOrdersAgain.length === 0  && parseFloat(lastPrice) <= (parseFloat(orderPrice)  * 1.001)) {
@@ -85,7 +85,7 @@ export class TradeService {
             });
           }
         }
-        if (order == 'sell' && buyForce) {
+        if (order == 'sell' && !buyForce) {
           this.log.error(`${currency} SIGNAL ${order.toUpperCase()} AT ` + lastCandle?.high);
         }
       };
