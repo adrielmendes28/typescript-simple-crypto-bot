@@ -82,7 +82,6 @@ class OrderService {
             yield Promise.all(openOrders.map((orderItem) => tslib_1.__awaiter(this, void 0, void 0, function* () {
                 this.binance.openOrders(symbol, (errorOpenDoors, openOrderss, symbol) => tslib_1.__awaiter(this, void 0, void 0, function* () {
                     let mainTrade = JSON.parse(JSON.stringify(openOrderss)).find((tr) => tr.orderId.toString() === orderItem.orderId);
-                    console.log(mainTrade);
                     if (!mainTrade) {
                         yield Order_1.default.findOneAndUpdate({ _id: orderItem._id }, { $set: {
                                 active: true
