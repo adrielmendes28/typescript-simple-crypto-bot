@@ -1,13 +1,12 @@
 import { CronJob } from 'cron';
-import { OrderBookService } from '../services/OrderBookService';
+import { FutureTradeService } from '../services/FutureTradeService';
 
 export class MonitorJob {
     cronJob: CronJob;
+    private futureTradeService = new FutureTradeService;
 
     constructor() {
-        const orderBookService = new OrderBookService;
-        orderBookService.startOrderBookSocket();
-        this.cronJob = new CronJob("*/3 * * * * *", async () => {
+        this.cronJob = new CronJob("*/1 * * * * *", async () => {
             try {
                 await this.update();
             } catch (e) {
@@ -20,7 +19,6 @@ export class MonitorJob {
     }
 
     private update = async () => {
-        const old = new Date().getTime();
-        // console.info(`[HeartBeat] Database updated in ${now - old} ms!`);
+        this.futureTradeService.startOrderMonitor();
     }
 }

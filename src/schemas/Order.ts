@@ -3,21 +3,11 @@ import { OrderInterface } from "../interfaces/OrderInterface";
 
 const OrderSchema: Schema = new Schema({
   symbol: { type: String, required: false },
-  orderId: { type: String, required: false },
-  time: { type: Date, required: false },
-  price: { type: String, required: false },
-  earn: { type: String, required: false },
-  quantity: { type: String, required: false },
-  status: { type: String, required: false },
-  order: { type: String, required: false },
-  martinGale: { type: Number, required: false, default: 0 },
-  martinSignal: { type: Number, required: false, default: 0 },
-  sendStop: { type: String, required: false, default: false },
-  sendProfit: { type: String, required: false, default: false },
-  stopLoss: {type: String, required: false, default: false},
-  takeProfit: {type: String, required: false, default: false},
-  originalPrice: {type: String, required: false, default: false},
-  active: {type: Boolean, required: false, default: false},
+  cliente: { type: String, required: false },
+  ROI: { type: Number, required: false },
+  maxROIReached: { type: Number, required: false },
+  quantity: { type: Number, required: false },
+  status: { type: String, required: false }
 });
 
 OrderSchema.set('timestamps', true);
