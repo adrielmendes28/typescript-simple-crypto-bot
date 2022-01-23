@@ -13,7 +13,7 @@ export default class CryptoBotServer {
   }
 
   private async setupDatabase() {
-    const connString = "mongodb://localhost:27017/frandonebot";
+    const connString = "mongodb+srv://admins:root0159@cluster0.zum0w.mongodb.net/myFirstDatabase?retryWrites=true&w=majority";
 
     Mongoose.connect(connString, {
       useNewUrlParser: true,
