@@ -31,7 +31,7 @@ export class FutureTradeService {
     {
       name: "Thiago",
       maxROIGain: 2,
-      maxROILoss: -5,
+      maxROILoss: -2,
       reducePercentage: 1,
       clientApi: new Binance().options({
         APIKEY:
